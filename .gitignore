@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+kraken-env/
+
+# Modèles et fichiers lourds (optionnel, à retirer si tu veux les garder sur Git)
+# catmus_large.mlmodel
+# yolov8n.pt
+
+# Données et sorties
+outputs/
+runs/
+dataset_images/
+
+# IDE
+.vscode/
+.idea/
+
+# Variables d'environnement
+.env

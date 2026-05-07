@@ -1,0 +1,12 @@
+path: .  # chemin vers le dossier contenant vos images (peut-être ./dataset)
+train: images/train  # dossier contenant les images d'entraînement
+val: images/val      # dossier contenant les images de validation
+
+# Noms de vos classes (ce que YOLO va chercher à encadrer)
+names:
+  0: commune
+  1: geometre
+  2: numero_dossier
+  3: echelle
+  4: tampon_signature
+  5: tableau_modification
