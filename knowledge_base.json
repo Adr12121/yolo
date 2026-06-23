@@ -1,0 +1,2561 @@
+{
+  "_comment": "Base de connaissances cadastrale — extensible automatiquement par le pipeline.",
+  "_version": "1.1",
+  "communes": {
+    "Vals-les-Bains": {
+      "code_insee": "07331",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "AB",
+        "AH",
+        "AC",
+        "AD",
+        "ZA",
+        "ZB",
+        "ZC",
+        "ZD"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21",
+        "A22",
+        "A23",
+        "A24"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "PLa",
+        "DMPC"
+      ]
+    },
+    "Saint-Didier-sous-Aubenas": {
+      "code_insee": "07229",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "ZA",
+        "ZB"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "DMPC"
+      ]
+    },
+    "Aubenas": {
+      "code_insee": "07019",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "AB",
+        "AC",
+        "AD"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21",
+        "A22"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "PLa",
+        "DMPC"
+      ]
+    },
+    "Guilherand-Granges": {
+      "code_insee": "07102",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "AC",
+        "AD",
+        "AE"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "PLa"
+      ]
+    },
+    "Vallon-Pont-d'Arc": {
+      "code_insee": "07330",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "ZA",
+        "ZB",
+        "ZC"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "DMPC"
+      ]
+    },
+    "Privas": {
+      "code_insee": "07186",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "AB"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21",
+        "A22"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "PLa",
+        "DMPC"
+      ]
+    },
+    "Annonay": {
+      "code_insee": "07010",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "AB",
+        "AC"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21"
+      ],
+      "types_plans_frequents": [
+        "PVa",
+        "PLa"
+      ]
+    },
+    "Labégude": {
+      "code_insee": "07116",
+      "departement": "07",
+      "sections_connues": [
+        "AD",
+        "AE",
+        "AB",
+        "A",
+        "B",
+        "C"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21"
+      ],
+      "types_plans_frequents": [
+        "DMPC",
+        "PVa"
+      ]
+    },
+    "Vion": {
+      "code_insee": "07345",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "AC",
+        "AB",
+        "ZA"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18"
+      ],
+      "types_plans_frequents": [
+        "DMPC",
+        "PVa"
+      ]
+    },
+    "Saint-Privat": {
+      "code_insee": "07289",
+      "departement": "07",
+      "sections_connues": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "ZA",
+        "ZB"
+      ],
+      "prefixes_dossier": [
+        "A09",
+        "A12",
+        "A15",
+        "A18",
+        "A21"
+      ],
+      "types_plans_frequents": [
+        "DMPC",
+        "PVa"
+      ],
+      "_note": "Code 07289 dans les noms de fichiers geofoncier_dmpc_07289_000_xxx"
+    },
+    "Accons": {
+      "code_insee": "07001",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ailhon": {
+      "code_insee": "07002",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Aizac": {
+      "code_insee": "07003",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ajoux": {
+      "code_insee": "07004",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Alba-la-Romaine": {
+      "code_insee": "07005",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Albon-d'Ardèche": {
+      "code_insee": "07006",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Alboussière": {
+      "code_insee": "07007",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Alissas": {
+      "code_insee": "07008",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Andance": {
+      "code_insee": "07009",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vallées-d'Antraigues-Asperjoc": {
+      "code_insee": "07011",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Arcens": {
+      "code_insee": "07012",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ardoix": {
+      "code_insee": "07013",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Arlebosc": {
+      "code_insee": "07014",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Arras-sur-Rhône": {
+      "code_insee": "07015",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Les Assions": {
+      "code_insee": "07017",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Astet": {
+      "code_insee": "07018",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Aubignas": {
+      "code_insee": "07020",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Baix": {
+      "code_insee": "07022",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Balazuc": {
+      "code_insee": "07023",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Banne": {
+      "code_insee": "07024",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Barnas": {
+      "code_insee": "07025",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Béage": {
+      "code_insee": "07026",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Beauchastel": {
+      "code_insee": "07027",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Beaulieu": {
+      "code_insee": "07028",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Beaumont": {
+      "code_insee": "07029",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Beauvène": {
+      "code_insee": "07030",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Berrias-et-Casteljau": {
+      "code_insee": "07031",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Berzème": {
+      "code_insee": "07032",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Bessas": {
+      "code_insee": "07033",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Bidon": {
+      "code_insee": "07034",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Boffres": {
+      "code_insee": "07035",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Bogy": {
+      "code_insee": "07036",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Borée": {
+      "code_insee": "07037",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Borne": {
+      "code_insee": "07038",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Bozas": {
+      "code_insee": "07039",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Boucieu-le-Roi": {
+      "code_insee": "07040",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Boulieu-lès-Annonay": {
+      "code_insee": "07041",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Bourg-Saint-Andéol": {
+      "code_insee": "07042",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Brossainc": {
+      "code_insee": "07044",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Burzet": {
+      "code_insee": "07045",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Cellier-du-Luc": {
+      "code_insee": "07047",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chalencon": {
+      "code_insee": "07048",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Chambon": {
+      "code_insee": "07049",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chambonas": {
+      "code_insee": "07050",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Champagne": {
+      "code_insee": "07051",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Champis": {
+      "code_insee": "07052",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chandolas": {
+      "code_insee": "07053",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chanéac": {
+      "code_insee": "07054",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Charmes-sur-Rhône": {
+      "code_insee": "07055",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Charnas": {
+      "code_insee": "07056",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chassiers": {
+      "code_insee": "07058",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Châteaubourg": {
+      "code_insee": "07059",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Châteauneuf-de-Vernoux": {
+      "code_insee": "07060",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chauzon": {
+      "code_insee": "07061",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chazeaux": {
+      "code_insee": "07062",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Cheminas": {
+      "code_insee": "07063",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Cheylard": {
+      "code_insee": "07064",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chirols": {
+      "code_insee": "07065",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Chomérac": {
+      "code_insee": "07066",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Colombier-le-Cardinal": {
+      "code_insee": "07067",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Colombier-le-Jeune": {
+      "code_insee": "07068",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Colombier-le-Vieux": {
+      "code_insee": "07069",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Cornas": {
+      "code_insee": "07070",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Coucouron": {
+      "code_insee": "07071",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Coux": {
+      "code_insee": "07072",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Crestet": {
+      "code_insee": "07073",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Creysseilles": {
+      "code_insee": "07074",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Cros-de-Géorand": {
+      "code_insee": "07075",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Cruas": {
+      "code_insee": "07076",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Darbres": {
+      "code_insee": "07077",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Davézieux": {
+      "code_insee": "07078",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Désaignes": {
+      "code_insee": "07079",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Devesset": {
+      "code_insee": "07080",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Dompnac": {
+      "code_insee": "07081",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Dornas": {
+      "code_insee": "07082",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Dunière-sur-Eyrieux": {
+      "code_insee": "07083",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Eclassan": {
+      "code_insee": "07084",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Empurany": {
+      "code_insee": "07085",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Étables": {
+      "code_insee": "07086",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Fabras": {
+      "code_insee": "07087",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Faugères": {
+      "code_insee": "07088",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Félines": {
+      "code_insee": "07089",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Flaviac": {
+      "code_insee": "07090",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Fons": {
+      "code_insee": "07091",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Freyssenet": {
+      "code_insee": "07092",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Genestelle": {
+      "code_insee": "07093",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Gilhac-et-Bruzac": {
+      "code_insee": "07094",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Gilhoc-sur-Ormèze": {
+      "code_insee": "07095",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Gluiras": {
+      "code_insee": "07096",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Glun": {
+      "code_insee": "07097",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Gourdon": {
+      "code_insee": "07098",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Gras": {
+      "code_insee": "07099",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Gravières": {
+      "code_insee": "07100",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Grospierres": {
+      "code_insee": "07101",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Julien-d'Intres": {
+      "code_insee": "07103",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Issamoulenc": {
+      "code_insee": "07104",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Issanlas": {
+      "code_insee": "07105",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Issarlès": {
+      "code_insee": "07106",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Jaujac": {
+      "code_insee": "07107",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Jaunac": {
+      "code_insee": "07108",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Joannas": {
+      "code_insee": "07109",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Joyeuse": {
+      "code_insee": "07110",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Juvinas": {
+      "code_insee": "07111",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Labastide-sur-Bésorgues": {
+      "code_insee": "07112",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Labastide-de-Virac": {
+      "code_insee": "07113",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Labatie-d'Andaure": {
+      "code_insee": "07114",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Labeaume": {
+      "code_insee": "07115",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lablachère": {
+      "code_insee": "07117",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Laboule": {
+      "code_insee": "07118",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Lac-d'Issarlès": {
+      "code_insee": "07119",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lachamp-Raphaël": {
+      "code_insee": "07120",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lachapelle-Graillouse": {
+      "code_insee": "07121",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lachapelle-sous-Aubenas": {
+      "code_insee": "07122",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lachapelle-sous-Chanéac": {
+      "code_insee": "07123",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lafarre": {
+      "code_insee": "07124",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lagorce": {
+      "code_insee": "07126",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lalevade-d'Ardèche": {
+      "code_insee": "07127",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lalouvesc": {
+      "code_insee": "07128",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lamastre": {
+      "code_insee": "07129",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lanarce": {
+      "code_insee": "07130",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lanas": {
+      "code_insee": "07131",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Largentière": {
+      "code_insee": "07132",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Larnas": {
+      "code_insee": "07133",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Laurac-en-Vivarais": {
+      "code_insee": "07134",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Laveyrune": {
+      "code_insee": "07136",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lavillatte": {
+      "code_insee": "07137",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lavilledieu": {
+      "code_insee": "07138",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Laviolle": {
+      "code_insee": "07139",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lemps": {
+      "code_insee": "07140",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lentillères": {
+      "code_insee": "07141",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lespéron": {
+      "code_insee": "07142",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Limony": {
+      "code_insee": "07143",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Loubaresse": {
+      "code_insee": "07144",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lussas": {
+      "code_insee": "07145",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Lyas": {
+      "code_insee": "07146",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Malarce-sur-la-Thines": {
+      "code_insee": "07147",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Malbosc": {
+      "code_insee": "07148",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Marcols-les-Eaux": {
+      "code_insee": "07149",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mariac": {
+      "code_insee": "07150",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mars": {
+      "code_insee": "07151",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mauves": {
+      "code_insee": "07152",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mayres": {
+      "code_insee": "07153",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mazan-l'Abbaye": {
+      "code_insee": "07154",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mercuer": {
+      "code_insee": "07155",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Meyras": {
+      "code_insee": "07156",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Meysse": {
+      "code_insee": "07157",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mézilhac": {
+      "code_insee": "07158",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Mirabel": {
+      "code_insee": "07159",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Monestier": {
+      "code_insee": "07160",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Montpezat-sous-Bauzon": {
+      "code_insee": "07161",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Montréal": {
+      "code_insee": "07162",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Montselgues": {
+      "code_insee": "07163",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Belsentes": {
+      "code_insee": "07165",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Nozières": {
+      "code_insee": "07166",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Les Ollières-sur-Eyrieux": {
+      "code_insee": "07167",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Orgnac-l'Aven": {
+      "code_insee": "07168",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ozon": {
+      "code_insee": "07169",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Pailharès": {
+      "code_insee": "07170",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Payzac": {
+      "code_insee": "07171",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Peaugres": {
+      "code_insee": "07172",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Péreyres": {
+      "code_insee": "07173",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Peyraud": {
+      "code_insee": "07174",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Plagnal": {
+      "code_insee": "07175",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Planzolles": {
+      "code_insee": "07176",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Plats": {
+      "code_insee": "07177",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Pont-de-Labeaume": {
+      "code_insee": "07178",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Pourchères": {
+      "code_insee": "07179",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Pouzin": {
+      "code_insee": "07181",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Prades": {
+      "code_insee": "07182",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Pradons": {
+      "code_insee": "07183",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Pranles": {
+      "code_insee": "07184",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Préaux": {
+      "code_insee": "07185",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Prunet": {
+      "code_insee": "07187",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Quintenas": {
+      "code_insee": "07188",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ribes": {
+      "code_insee": "07189",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rochecolombe": {
+      "code_insee": "07190",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rochemaure": {
+      "code_insee": "07191",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rochepaule": {
+      "code_insee": "07192",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rocher": {
+      "code_insee": "07193",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rochessauve": {
+      "code_insee": "07194",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "La Rochette": {
+      "code_insee": "07195",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rocles": {
+      "code_insee": "07196",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Roiffieux": {
+      "code_insee": "07197",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rompon": {
+      "code_insee": "07198",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Rosières": {
+      "code_insee": "07199",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Roux": {
+      "code_insee": "07200",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ruoms": {
+      "code_insee": "07201",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sablières": {
+      "code_insee": "07202",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sagnes-et-Goudoulet": {
+      "code_insee": "07203",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Agrève": {
+      "code_insee": "07204",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Alban-d'Ay": {
+      "code_insee": "07205",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Alban-en-Montagne": {
+      "code_insee": "07206",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Alban-Auriolles": {
+      "code_insee": "07207",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Andéol-de-Berg": {
+      "code_insee": "07208",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Andéol-de-Fourchades": {
+      "code_insee": "07209",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Andéol-de-Vals": {
+      "code_insee": "07210",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-André-de-Cruzières": {
+      "code_insee": "07211",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-André-en-Vivarais": {
+      "code_insee": "07212",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-André-Lachamp": {
+      "code_insee": "07213",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Apollinaire-de-Rias": {
+      "code_insee": "07214",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Barthélemy-le-Meil": {
+      "code_insee": "07215",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Barthélemy-Grozon": {
+      "code_insee": "07216",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Barthélemy-le-Plain": {
+      "code_insee": "07217",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Basile": {
+      "code_insee": "07218",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Bauzile": {
+      "code_insee": "07219",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Christol": {
+      "code_insee": "07220",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Cierge-la-Serre": {
+      "code_insee": "07221",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Cierge-sous-le-Cheylard": {
+      "code_insee": "07222",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Cirgues-de-Prades": {
+      "code_insee": "07223",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Cirgues-en-Montagne": {
+      "code_insee": "07224",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Clair": {
+      "code_insee": "07225",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Clément": {
+      "code_insee": "07226",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Cyr": {
+      "code_insee": "07227",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Désirat": {
+      "code_insee": "07228",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Étienne-de-Boulogne": {
+      "code_insee": "07230",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Étienne-de-Fontbellon": {
+      "code_insee": "07231",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Étienne-de-Lugdarès": {
+      "code_insee": "07232",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Étienne-de-Serre": {
+      "code_insee": "07233",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Étienne-de-Valoux": {
+      "code_insee": "07234",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sainte-Eulalie": {
+      "code_insee": "07235",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Félicien": {
+      "code_insee": "07236",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Fortunat-sur-Eyrieux": {
+      "code_insee": "07237",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Genest-de-Beauzon": {
+      "code_insee": "07238",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Genest-Lachamp": {
+      "code_insee": "07239",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Georges-les-Bains": {
+      "code_insee": "07240",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Germain": {
+      "code_insee": "07241",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Gineys-en-Coiron": {
+      "code_insee": "07242",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jacques-d'Atticieux": {
+      "code_insee": "07243",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jean-Chambre": {
+      "code_insee": "07244",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jean-de-Muzols": {
+      "code_insee": "07245",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jean-le-Centenier": {
+      "code_insee": "07247",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jean-Roure": {
+      "code_insee": "07248",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jeure-d'Andaure": {
+      "code_insee": "07249",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Jeure-d'Ay": {
+      "code_insee": "07250",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Joseph-des-Bancs": {
+      "code_insee": "07251",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Julien-du-Gua": {
+      "code_insee": "07253",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Julien-du-Serre": {
+      "code_insee": "07254",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Julien-en-Saint-Alban": {
+      "code_insee": "07255",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Julien-le-Roux": {
+      "code_insee": "07257",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Julien-Vocance": {
+      "code_insee": "07258",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Just-d'Ardèche": {
+      "code_insee": "07259",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Lager-Bressac": {
+      "code_insee": "07260",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Laurent-du-Pape": {
+      "code_insee": "07261",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Laurent-les-Bains-Laval-d'Aurelle": {
+      "code_insee": "07262",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Laurent-sous-Coiron": {
+      "code_insee": "07263",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Marcel-d'Ardèche": {
+      "code_insee": "07264",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Marcel-lès-Annonay": {
+      "code_insee": "07265",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sainte-Marguerite-Lafigère": {
+      "code_insee": "07266",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Martial": {
+      "code_insee": "07267",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Martin-d'Ardèche": {
+      "code_insee": "07268",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Martin-de-Valamas": {
+      "code_insee": "07269",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Martin-sur-Lavezon": {
+      "code_insee": "07270",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Maurice-d'Ardèche": {
+      "code_insee": "07272",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Maurice-d'Ibie": {
+      "code_insee": "07273",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Maurice-en-Chalencon": {
+      "code_insee": "07274",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Mélany": {
+      "code_insee": "07275",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Michel-d'Aurance": {
+      "code_insee": "07276",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Michel-de-Boulogne": {
+      "code_insee": "07277",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Michel-de-Chabrillanoux": {
+      "code_insee": "07278",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Montan": {
+      "code_insee": "07279",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Paul-le-Jeune": {
+      "code_insee": "07280",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Péray": {
+      "code_insee": "07281",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Pierre-de-Colombier": {
+      "code_insee": "07282",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Pierre-la-Roche": {
+      "code_insee": "07283",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Pierre-Saint-Jean": {
+      "code_insee": "07284",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Pierre-sur-Doux": {
+      "code_insee": "07285",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Pierreville": {
+      "code_insee": "07286",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Pons": {
+      "code_insee": "07287",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Priest": {
+      "code_insee": "07288",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Prix": {
+      "code_insee": "07290",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Remèze": {
+      "code_insee": "07291",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Romain-d'Ay": {
+      "code_insee": "07292",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Romain-de-Lerps": {
+      "code_insee": "07293",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Sauveur-de-Cruzières": {
+      "code_insee": "07294",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Sauveur-de-Montagut": {
+      "code_insee": "07295",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Sernin": {
+      "code_insee": "07296",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Sylvestre": {
+      "code_insee": "07297",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Symphorien-sous-Chomérac": {
+      "code_insee": "07298",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Symphorien-de-Mahun": {
+      "code_insee": "07299",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Thomé": {
+      "code_insee": "07300",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Victor": {
+      "code_insee": "07301",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Vincent-de-Barrès": {
+      "code_insee": "07302",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Saint-Vincent-de-Durfort": {
+      "code_insee": "07303",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Salavas": {
+      "code_insee": "07304",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Les Salelles": {
+      "code_insee": "07305",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sampzon": {
+      "code_insee": "07306",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sanilhac": {
+      "code_insee": "07307",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sarras": {
+      "code_insee": "07308",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Satillieu": {
+      "code_insee": "07309",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Savas": {
+      "code_insee": "07310",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sceautres": {
+      "code_insee": "07311",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Sécheras": {
+      "code_insee": "07312",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Serrières": {
+      "code_insee": "07313",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Silhac": {
+      "code_insee": "07314",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "La Souche": {
+      "code_insee": "07315",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Soyons": {
+      "code_insee": "07316",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Talencieux": {
+      "code_insee": "07317",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Tauriers": {
+      "code_insee": "07318",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Le Teil": {
+      "code_insee": "07319",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Thorrenc": {
+      "code_insee": "07321",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Thueyts": {
+      "code_insee": "07322",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Toulaud": {
+      "code_insee": "07323",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Tournon-sur-Rhône": {
+      "code_insee": "07324",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Ucel": {
+      "code_insee": "07325",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Usclades-et-Rieutord": {
+      "code_insee": "07326",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Uzer": {
+      "code_insee": "07327",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vagnas": {
+      "code_insee": "07328",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Valgorge": {
+      "code_insee": "07329",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Valvignères": {
+      "code_insee": "07332",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vanosc": {
+      "code_insee": "07333",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Les Vans": {
+      "code_insee": "07334",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vaudevant": {
+      "code_insee": "07335",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vernon": {
+      "code_insee": "07336",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vernosc-lès-Annonay": {
+      "code_insee": "07337",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vernoux-en-Vivarais": {
+      "code_insee": "07338",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vesseaux": {
+      "code_insee": "07339",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Veyras": {
+      "code_insee": "07340",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Villeneuve-de-Berg": {
+      "code_insee": "07341",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Villevocance": {
+      "code_insee": "07342",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vinezac": {
+      "code_insee": "07343",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vinzieux": {
+      "code_insee": "07344",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Viviers": {
+      "code_insee": "07346",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vocance": {
+      "code_insee": "07347",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "Vogüé": {
+      "code_insee": "07348",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    },
+    "La Voulte-sur-Rhône": {
+      "code_insee": "07349",
+      "departement": "07",
+      "sections_connues": [],
+      "prefixes_dossier": [],
+      "types_plans_frequents": []
+    }
+  },
+  "formats_dossier_par_type": {
+    "PVa": [
+      "LettreAnneeIncrement",
+      "DA_classique"
+    ],
+    "PLa": [
+      "LettreAnneeIncrement",
+      "DA_classique"
+    ],
+    "DMPC": [
+      "LettreAnneeIncrement",
+      "DA_classique",
+      "numerique_seul"
+    ]
+  },
+  "echelles_plausibles_cadastre": {
+    "min": 200,
+    "max": 10000,
+    "valeurs_courantes": [
+      200,
+      500,
+      1000,
+      2000,
+      2500,
+      5000
+    ]
+  },
+  "plage_dates_valide": {
+    "annee_min": 1900,
+    "annee_max": 2030
+  }
+}

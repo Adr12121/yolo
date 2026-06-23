@@ -1,0 +1,4489 @@
+openapi: "3.0.0"
+info:
+  version: 2.0.0
+  title: Documentation API Géofoncier V2
+  description: |
+    Cette page décrit l'ensemble des services REST offerts par l'API Géofoncier.
+
+    Pour la quasi-totalité des services présentés ci-dessous, une authentification en tant que géomètre-expert est requise.
+
+    L'authentification s'effectue à l'aide d'un jeton (token) de type Bearer (bearerAuth). L'obtention de ce token se fait via un service dédié, décrit sur une autre page de cette documentation : <a href="/token.html" target="blank">obtenir un token</a>
+    
+    Cette documentation permet de tester directement les services dans l'environnement de préproduction (PREPROD). Pour cela, vous devez cliquer sur le bouton __Authorize__ situé au-dessus des services, puis renseigner un token valide correspondant au compte utilisé pour vos tests.
+
+    Pour toute question ou besoin d'assistance, vous pouvez contacter le support technique Géofoncier à l'adresse suivante : <a href="mailto:support.technique@geofoncier.fr" target="blank">support.technique@geofoncier.fr</a>
+
+  # contact:
+  #   name:
+  #   email:
+  #   url:
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+servers:
+  - url: https://api2.geofoncier.fr/api/
+    description: Environnement prod
+  - url: https://api2.preprod.geofoncier.fr/api/
+    description: Environnement preprod
+
+tags:
+  - name: referentielsoge
+    description: Composante REFERENTIEL
+  - name: dossiersoge
+    description: Composante DOSSIER
+  - name: mes_dossiers
+    description: Composante MES DOSSIERS
+  - name: rfuoge
+    description: Composante RFU
+  - name: signature
+    description: Composante SIGNATURE
+  - name: signature_v2
+    description: Composante SIGNATURE_V2
+    # externalDocs:
+    #   description: Find out more
+    #   url: 'http://swagger.io'
+paths:
+  /referentielsoge/wxs/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+        Ce service permet l’accès en visualisation et/ou interrogation aux données géographiques produites et maintenues par les géomètres-experts telles qu’elles sont visibles et/ou interrogeables sur le portail Géofoncier.
+
+        Deux cas d’utilisation sont possibles :
+        * __en mode non authentifié__ : accès en visualisation seulement aux données dans les même conditions que sur la version grand public du portail Géofoncier.
+        * __en mode authentifié__ : accès en visualisation et interrogation aux données dans les mêmes conditions que sur la version professionnelle du portail Géofoncier.
+
+        Les couches proposées sont :
+        *  __Référentiel Foncier Unifié (RFU)__ : couches « limites » et « sommets »
+        Le RFU est le résultat de l’assemblage au niveau national de l’ensemble des limites foncières issues des travaux fonciers des géomètres-experts réalisés à partir de juillet 2010.
+        Couches mises à jour en temps réel en accès authentifié, mises à jour quotidiennes sinon.
+        * __Localisants des dossiers géomètres-experts__ :
+        Représentent l’ensemble des localisants des travaux réalisés par les géomètres-experts des géomètres-experts depuis 1997.
+        Couches mises à jour en temps réel en accès authentifié, mises à jour quotidiennes sinon.
+        * __Polygones d'emprise de dossiers des géomètres-experts__ :
+        Représentent l’ensemble des polygones d'emprise des travaux réalisés par les géomètres-experts des géomètres-experts depuis 1997.
+        Couches mises à jour en temps réel en accès authentifié, mises à jour quotidiennes sinon.
+        * __Bureaux des géomètres-experts__ :
+        Représentent l’ensemble des localisants des bureaux des géomètres-experts.
+        Couche mise à jour quotidiennement.
+
+        Les données sont visualisables, suivant le territoire, dans les projections suivantes :
+        * __Tous les territoires__ : EPSG:4326 EPSG:900913
+        * __Métropole__ : EPSG:2154 EPSG:3950 EPSG:3949 EPSG:3948 EPSG:3947 EPSG:3946 EPSG:3945 EPSG:3944 EPSG:3943 EPSG:3942 EPSG:3034 EPSG:3035 EPSG:3042 EPSG:3043 EPSG:3044
+        * __Antilles__ : EPSG:4559
+        * __Guyane__ : EPSG:2972
+        * __Réunion__ : EPSG:2975
+        * __Mayotte__ : EPSG:4471
+
+        Les formats disponibles en sortie sont __png__ et __jpeg__.  
+        __ATTENTION__ : l'url a été simplifiée depuis la v1, dans laquelle on avait /ogc/wxs, qui devient désormais /wxs
+      summary: A1 - Flux OGC WMS
+      security: []
+      parameters:
+        - name: SERVICE
+          in: query
+          description: WMS
+          schema:
+            items:
+              type: string
+        - name: REQUEST
+          in: query
+          description: getCapabilities/getMap
+          schema:
+            items:
+              type: string
+        - name: VERSION
+          in: query
+          description: 1.1.1 (ou 1.3.0, mais dans ce cas, utiliser CRS au lieu de SRS)
+          schema:
+            items:
+              type: string
+        - name: ENR_CAB_DETENTEUR
+          in: query
+          description: Facultatif. Fonctionne avec le paramètre TYPE_FILTRE. Lors du getMap, filtrage des dossiers affichés. Le numéro de cabinet indiqué ne peut être que celui du GE connecté.
+          schema:
+            items:
+              type: string
+        - name: TYPE_FILTRE
+          in: query
+          description: |
+            Facultatif. Fonctionne avec le paramètre ENR_CAB_DETENTEUR.
+            Lors du getMap, filtrage des dossiers affichés en prenant les valeurs suivantes :
+            * __tous__ : affiche tous les dossiers visibles des autres GE et tous les dossiers du GE.
+            * __hors_cabinet__ : affiche uniquement les dossiers visibles des autres GE.
+            * __du_cabinet__ : affiche uniquement les dossiers du GE
+          schema:
+            items:
+              type: string
+        - name: BBOX
+          in: query
+          description: |
+             Lors du getMap, extent demandée.
+             Exemple : 1.8098667234259749,47.84895561004332,1.8527069658116162,47.858631489038096
+          schema:
+            items:
+              type: string
+        - name: SRS
+          in: query
+          description: |
+             Lors du getMap, projection demandée.
+             Exemple : EPSG:4326
+          schema:
+            items:
+              type: string
+        - name: WIDTH
+          in: query
+          description: |
+             Lors du getMap, largeur de l'image demandée.
+             Exemple : 1996
+          schema:
+            items:
+              type: string
+        - name: HEIGHT
+          in: query
+          description: |
+             Lors du getMap, hauteur de l'image demandée.
+             Exemple : 672
+          schema:
+            items:
+              type: string
+        - name: LAYERS
+          in: query
+          description: |
+             Lors du getMap, layer(s) demandé(s).
+             Exemple : metropole:aurige
+          schema:
+            items:
+              type: string
+        - name: FORMAT
+          in: query
+          description: |
+             Lors du getMap, format de l'image demandé.
+             Exemple : image/png
+          schema:
+            items:
+              type: string
+        - name: STYLES
+          in: query
+          description: |
+             Lors du getMap, style spécifique.
+             Exemple : default
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+        '500':
+          description: |
+            Erreur renvoyée par le serveur WMS
+  /referentielsoge/bbox/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+       Ce service permet d’obtenir d'obtenir les coordonnées de la boite englobante de plusieurs types d’entité manipulés par Géofoncier (adresse, point, référence parcellaire ou structure GE). Dans les 3 premiers cas, le service permet de faire une redirection automatique vers l'application Cartes centrée sur l'emprise trouvée.
+      summary: A2 - Obtenir une emprise GéoFoncier
+      security: []
+      parameters:
+        - name: point
+          in: query
+          description: Un point géographique. Nécessite d'indiquer une projection
+          schema:
+            items:
+              type: string
+        - name: projection
+          in: query
+          description: Pour le point géographique
+          schema:
+            items:
+              type: string
+        - name: structurege
+          in: query
+          description: |
+            Une structure de géomètre(s)-expert(s) : le rectangle d’emprise prend en compte la position de tous les bureaux de la structure
+          schema:
+            items:
+              type: string
+        - name: insee
+          in: query
+          description: |
+            Une commune : le code INSEE indiqué doit correspondre à une commune existant
+          schema:
+            items:
+              type: string
+        - name: prefixe
+          in: query
+          description: Un préfixe cadastral. Nécessite d'indiquer au minimum insee
+          schema:
+            items:
+              type: string
+        - name: section
+          in: query
+          description: Une section cadastrale. Nécessite d'indiquer au minimum insee.
+          schema:
+            items:
+              type: string
+        - name: numero
+          in: query
+          description: Une parcelle cadastrale. Nécessite d'indiquer au minimum insee et section.
+          schema:
+            items:
+              type: string
+        - name: adrvoie
+          in: query
+          description: La voie d'une adresse postale. A compléter avec le paramètre addrcomm
+          schema:
+            items:
+              type: string
+        - name: adrcomm
+          in: query
+          description: La commune d'une adresse postale
+          schema:
+            items:
+              type: string
+        - name: autoload
+          in: query
+          description: Paramètre facultatif qui permet d’obtenir une redirection sur un permalien Géofoncier permettant de visualiser la zone dans le portail https://expert.geofoncier.fr
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+        '400':
+          description: |
+            1. Aucun paramètre connu pour ce service n'a été fourni.
+
+            2. La projection indiquée n'a pas été reconnue ou n'est pas autorisée.
+            __Explication__ : les projections autorisées sont les suivantes.
+            * `Pour la métropole` : 'EPSG:2154','EPSG:3950','EPSG:3949','EPSG:3948','EPSG:3947','EPSG:3946','EPSG:3945','EPSG:3944','EPSG:3943','EPSG:3942',
+                    'IGNF:LAMB93','IGNF:RGF93CC50','IGNF:RGF93CC49','IGNF:RGF93CC48','IGNF:RGF93CC47','IGNF:RGF93CC46','IGNF:RGF93CC45','IGNF:RGF93CC44','IGNF:RGF93CC43','IGNF:RGF93CC42',
+                    'EPSG:3034','EPSG:3035','EPSG:3042','EPSG:3043','EPSG:3044','IGNF:UTM31ETRS89','IGNF:UTM32ETRS89'
+            * `Pour les Antilles` : 'EPSG:4559','IGNF:UTM20W84GUAD'
+            * `Pour la Guyane` : 'EPSG:2972','IGNF:UTM22RGFG95'
+            * `Pour la Réunion` : 'EPSG:2975','IGNF:RGR92UTM40S'
+            * `Pour Mayotte` : 'EPSG:4471','IGNF:RGM04UTM38S'
+
+            3. Les coordonnées indiquées pour le point ne sont pas au bon format (point=x,y
+
+            4. Pour obtenir la bbox d'un point, il est nécessaire d'indiquer la projection des coordonnées de ce point.
+            __Explication__ : le paramètre 'point' a été fourni sans le paramètre 'projection'
+
+            5. La structure n'a pas été trouvée. __Explication__ : un parametre 'structurege' a été fourni mais la structure n'existe pas.
+
+            6. La référence cadastrale n'a pas été trouvée.
+
+            7. Le service de géocodage a retourné une erreur
+
+  /referentielsoge/ge/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+        Ce service permet de rechercher des géomètres-experts (personnes physiques) à partir de leur numéro, nom, prénom ou statut (actif).
+
+        Le service retourne les GE trouvés :
+        - dont le numéro est celui indiqué dans le paramètre __numero__,
+        - dont le nom commence par celui indiqué dans le paramètre __nom__,
+        - dont le prénom commence par celui indiqué dans le paramètre __prenom__,
+        - dont le nom ou le prénom contient le texte indiqué dans le paramètre __libelle__,
+        - et dont le statut est celui indiqué dans le paramètre __actif__
+
+        Tous les paramètres sont optionnels. Si plusieurs filtres de recherche sont renseignés, ils se cumulent.
+
+      summary: A3 - Identifier un géomètre-expert
+      security: []
+      parameters:
+        - name: numero
+          in: query
+          description: Identifiant de géomètre-expert
+          schema:
+            items:
+              type: string
+        - name: nom
+          in: query
+          description: Nom du géomètre-expert (commence par...)
+          schema:
+            items:
+              type: string
+        - name: prenom
+          in: query
+          description: Prénom du géomètre-expert (commence par...)
+          schema:
+            items:
+              type: string
+        - name: libelle
+          in: query
+          description: Nom ou prénom du géomètre-expert (contient...)
+          schema:
+            items:
+              type: string
+        - name: actif
+          in: query
+          description: Identifiant de géomètre-expert
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Liste des géomètres-experts correspondant à la requête
+          content:
+           application/json:
+            schema:
+              $ref: '#/components/schemas/ReferentielGE'
+
+        '500':
+          description: |
+            -Erreur du serveur
+
+  /referentielsoge/structure/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+        Ce service permet de rechercher des structures de géomètres-experts (personne morale) à partir de leur numéro ou de leur nom.
+
+        Le service retourne les structures trouvées :
+        - dont le numéro est celui indiqué dans le paramètre __numero__,
+        - dont le nom contient le texte indiqué dans le paramètre __nom__,
+
+        Il faut indiquer au moins un des 2 paramètres (nom ou numéro). Si les 2 sont renseignés, ils se cumulent.
+
+      summary: A4 - Identifier une structure de géomètres-experts
+      security: []
+      parameters:
+        - name: numero
+          in: query
+          description: Numéro de la structure
+          schema:
+            items:
+              type: string
+        - name: nom
+          in: query
+          description: Nom de la structure (contient...)
+          schema:
+            items:
+              type: string
+
+      responses:
+        '200':
+          description: Liste des structures correspondant à la requête
+          content:
+           application/json:
+            schema:
+              $ref: '#/components/schemas/StructureGE'
+
+        '500':
+          description: |
+            -Erreur du serveur
+
+  /referentielsoge/bureau/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+        Ce service permet de rechercher des bureaux de géomètres-experts à partir du numéro ou nom de leur cabinet, ou de leur ville ou code postal.
+
+        Le service retourne les bureaux trouvées :
+        - dont le numéro de cabinet est celui indiqué dans le paramètre __numero__,
+        - dont le nom de cabinet contient le texte indiqué dans le paramètre __nom__,
+        - dont la ville commence par celui indiqué dans le paramètre __ville__,
+        - dont le code postal est celui indiqué dans le paramètre __code_postal__
+
+        Il faut indiquer au moins un des 4 paramètres (numéro ou nom de cabinet, ville ou code postal). Si plusieurs sont renseignés, ils se cumulent.
+
+        Enfin, il est aussi possible de filtrer les résultats sur le type de bureau :
+        * Bureau principal,
+        * Bureau secondaire,
+        * Permanence
+        * Bureau de chantier.
+
+      summary: A5 - Rechercher des bureaux de géomètres-experts
+      security: []
+      parameters:
+        - name: numero
+          in: query
+          description: Numéro de la structure
+          schema:
+            items:
+              type: string
+        - name: nom
+          in: query
+          description: Nom de la structure (contient...)
+          schema:
+            items:
+              type: string
+        - name: ville
+          in: query
+          description: Nom de la ville (commence par...)
+          schema:
+            items:
+              type: string
+        - name: code_postal
+          in: query
+          description: Code postal de la ville
+          schema:
+            items:
+              type: string
+        - name: type_bureau
+          in: query
+          description: |
+            Type de bureau parmi :
+            Bureau principal, Bureau secondaire, Permanence, Bureau de chantier.
+          schema:
+            items:
+              type: string
+
+      responses:
+        '200':
+          description: Liste des bureaux correspondant à la requête
+          content:
+           application/json:
+            schema:
+              $ref: '#/components/schemas/BureauGE'
+
+        '500':
+          description: |
+            -Erreur du serveur
+  /referentielsoge/repreneur/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+        Ce service permet d’obtenir le(s) cabinet(s) repreneur(s) d'un GE.
+      summary: A6 - Repreneurs d'un GE
+      security: []
+      parameters:
+        - name: numero
+          in: query
+          description: Numéro ordinal du géomètre-expert dont on cherche le repreneur
+          schema:
+            items:
+              type: string
+
+      responses:
+        '200':
+          description: Liste des cabinets repreneurs du GE
+          content:
+           application/json:
+            schema:
+              type: object
+        '400':
+          description: Vous devez indiquer au moins un numéro de GE correct
+        '500':
+          description: |
+            -Erreur du serveur
+
+  /referentielsoge/indicateurs/:
+    get:
+      tags:
+        - referentielsoge
+      description: |
+        Ce service permet d’obtenir divers indicateurs sur l'état des bases Géofoncier.
+      summary: A7 - Indicateurs sur les bases Géofoncier
+      security: []
+      responses:
+        '200':
+          description: Liste des indicateurs
+          content:
+           application/json:
+            schema:
+              type: object
+        '500':
+          description: |
+            -Erreur du serveur
+
+  /dossiersoge/detenteurcreateurge/:
+    get:
+      tags:
+        - dossiersoge
+      description: |
+       Ce service permet d’obtenir la liste des triplets « enr_cab_detenteur », « enr_cab_createur » et « enr_ge_createur » disponibles pour un utilisateur.
+      summary: B1 - Lister les cabinets pour un GE
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: string
+           application/xml:
+            schema:
+                type: string
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+  /dossiersoge/codesinsee/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet d’obtenir la liste des communes acceptées par Géofoncier sur un département.
+
+         -Remarque 1 : Géofoncier n’accepte pas les codes INSEE des arrondissements municipaux (Paris, Lyon et Marseille) les codes INSEE communaux correspondant doivent leur être substitué (respectivement 75056, 69123 et 13055)
+
+         -Remarque 2 : La liste des codes INSEE est mise à jour annuellement. Elle prend en compte les communes existantes ainsi que les communes ayant existées dans le passé (état de la balise « commune_actuelle »). Il est vivement conseillé d’utiliser en toute circonstance les codes INSEE de communes actives.
+
+
+      summary: B2 - Lister les codes INSEE autorisés
+      parameters:
+        - name: dep
+          in: query
+          description: Code département. Deux ou trois chiffres (DOM)
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Le département doit etre indiqué dans les paramètres avec 2 ou 3 caractères (ex : dep=31 ou dep=971)
+
+            -Aucun code INSEE trouvé pour le département ...
+  /dossiersoge/codesoperations/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet d’obtenir la liste des codes opérations acceptés par Géofoncier.
+
+         -Remarque : La liste des codes opération est identique sur tous les territoires
+
+      summary: B3 - Lister les codes opérations autorisés
+
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: Aucun code opération trouvé
+  /dossiersoge/codesdocuments/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet d’obtenir la liste des codes de type de document acceptés par Géofoncier..
+
+         -Remarque :  La liste des codes de type de document est identique sur tous les territoires
+
+      summary: B4 - Lister les codes documents autorisés
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: Aucun code document trouvé
+  /dossiersoge/nomenclaturedossiers/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet d’obtenir la liste de nomenclature de document acceptés par Géofoncier.
+
+      summary: B4a - Lister les nomenclature documents
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: Aucun code document trouvé 
+  /dossiersoge/formatsfichierautorises/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+        Ce service permet d’obtenir la liste des formats de fichier autorisés pour les documents dématérialisés acceptés par Géofoncier.
+
+        Remarque : la liste des formats de fichier est identique sur tous les territoires
+
+      summary: B4b - Lister les formats de fichier autorisés
+      security: []
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '400':
+          description: Aucun format de fichier trouvé
+  /dossiersoge/statuts/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet d’obtenir la liste des statuts possibles pour un dossier dans Géofoncier. La liste des statuts est ordonnée.
+
+      summary: B4c - Lister les statuts d'un dossier
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: Aucun statut trouvé
+  /dossiersoge/dossiers/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet de rechercher les dossiers auxquels a accès l’utilisateur. Il permet notamment d’obtenir les URI des dossiers. Toute une série de filtres cumulatifs sont disponibles.
+
+         -Les résultats retournés sont triés par ordre croissant des champs <enr_cab_createur> puis <enr_ref_dossier>.
+
+         -Si le paramètre limit est utilisé dans la requeête afin de paginer les résultats.Les attributs de la balise racine permettront de connaitre
+            - Le nombre total de résultatsc (count).
+            - Le lien vers la page suivante des résultas si elle existe (next)
+            - Le lien vers la page précédente si elle existe (previous)
+
+      summary: B5 - Recherche de dossiers
+      parameters:
+        - name: enr_cab_createur
+          in: query
+          description: Identifiant de structure créatrice (11 caractères)
+          schema:
+            items:
+              type: string
+        - name: enr_ge_createur
+          in: query
+          description: Identifiant de géomètre-expert créateur (5 chiffres)
+          schema:
+            items:
+              type: string
+        - name: enr_code_insee
+          in: query
+          description: Code INSEE d'une commune (5 caractères)
+          schema:
+            items:
+              type: string
+        - name: enr_date_min
+          in: query
+          description: Date minimale des dossiers [AAAA-MM-JJ ou JJ-MM-AAAA]
+          schema:
+            items:
+              type: string
+        - name: enr_date_max
+          in: query
+          description: Date maximale des dossiers [AAAA-MM-JJ ou JJ-MM-AAAA]
+          schema:
+            items:
+              type: string
+        - name: enr_visible
+          in: query
+          description: Visibilité du dossier entre géomètres-experts (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_grand_public
+          in: query
+          description: Visibilité du dossier au grand public (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_rfu
+          in: query
+          description: Dossiers ayant fait l'objet de versement(s) RFU (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_perimetre_obligatoire
+          in: query
+          description: Dossier faisant parti du perimètre de versement obligatoire (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_polygone_emprise
+          in: query
+          description: Dossiers disposant d'un multipolygone d'emprise (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_memo
+          in: query
+          description: Dossiers disposant d'un mémo (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_statut
+          in: query
+          description: Statut du dossier. (Liste des statut possible avec le service B4c /dossiersoge/statuts)
+          schema:
+            items:
+              type: string
+        - name: localisants
+          in: query
+          description:   Dossiers disposant d'un ou plusieurs localisants (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: dmpc
+          in: query
+          description: Dossiers disposant d'un ou plusieurs DMPC (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: references_cadastrales
+          in: query
+          description:   Dossiers disposant d'une ou plusieurs références cadastrales (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: documents_joints
+          in: query
+          description: Dossiers disposant d'un ou plusieurs documents joints (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: clients
+          in: query
+          description: Dossiers disposant d'un ou plusieurs clients enregistrés (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: operations
+          in: query
+          description: Dossiers disposant d'une ou plusieurs opérations (true ou false)
+          schema:
+            items:
+              type: boolean
+        - name: enr_ref_dossier
+          in: query
+          description: Référence du dossier (15 caractères maximum)
+          schema:
+            items:
+              type: string
+        - name: enr_extra
+          in: query
+          description: Informations complémentaires du dossier. La recherche peut se faire sur un champ spécifique sous la forme champ:valeur
+          schema:
+            items:
+              type: string
+        - name: offset
+          in: query
+          description: Début de la plage de résultats souhaitée
+          schema:
+            items:
+              type: string
+        - name: limit
+          in: query
+          description: Nombre de résultats souhaités par page
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucun cabinet associé au GE numéro ...
+        '403':
+          description: Accès suspendu en attente du règlement de la redevance annuelle. La facturation de la redevance annuelle est sans règlement depuis plus de 90 jours.
+    post:
+      tags:
+        - dossiersoge
+      description:  |
+        Ce service permet de créer un dossier sur Géofoncier.
+
+        En réponse un nouveau dossier est créé, et son URI ainsi que son contenu sont affiché.
+
+      summary: B7 - Création d'un dossier
+      requestBody:
+        description: Création d'un dossier
+        required: true
+        content:
+          application/json:
+            schema:
+             $ref: '#/components/schemas/DossierCreation'
+
+      responses:
+        '201':
+          description: Création
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+           -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+           -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description:  |
+           -Les valeurs suivantes ne sont pas renseignées. Pour créer un dossier, certains paramètres sont obligatoires. Cette erreur signifie que des paramètres obligatoires n'ont pas été envoyés et indique lesquels.
+
+           -La référence dossier contient un espace en début ou fin de chaine. La référence du dossier à créer ne doit contenir aucun espace en début ou en fin de chaîne.
+
+           -La référence dossier ne doit pas comporter plus de 15 caractères.
+
+           -La référence dossier contient une apostrophe. Ce caractère n'est pas autorisé pour une référence dossier.
+
+           -Le cabinet créateur indiqué n'a pas de lien avec le cabinet détenteur. Les cabinets détenteur et créateur doivent être compatibles.
+
+           -Aucun cabinet associé au GE numéro ...
+
+           -Votre compte utilisateur ne vous permet pas de créer de dossier pour le cabinet spécifié ...
+
+           -Le géomètre-expert indiqué n'a jamais exercé dans le cabinet créateur.
+
+           -Le format de la date du dossier n'a pas été reconnu. La date du dossier doit être envoyée au format YYYY-MM-JJ ou JJ-MM-AAAA.
+
+           -La date du dossier doit être antérieure ou égale à la date de versement dans Géofoncier.
+
+           -La date du dossier doit être postérieure au 1er janvier 1900.
+
+           -Le code opération n'existe pas. Le dossier ne peut pas être créé. Les codes opérations valides sont fournis par le service B3.
+
+           -Le dossier existe déjà.
+
+           -Echec lors de l'insertion du dossier. Une erreur s'est produite loes de l'insertion SQL du dossier. Le message d'erreur SQL est fourni dans la balise
+
+        '403':
+          description: Accès suspendu en attente du règlement de la redevance annuelle. La facturation de la redevance annuelle est sans règlement depuis plus de 90 jours.
+  /dossiersoge/dossiers/mini/{id_dossier}/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+        Ce service permet d'obtenir des informations restreintes sur un dossier sans en être son propriétaire.
+
+        Les informations renvoyées correspondent à celles indiquées dans la fiche dossier lors du clic sur un localisant sur la carte du portail Géofoncier.
+
+        En particulier, on obtient directement les libellés en clair des opérations du dossier, du nom du Géomètre-Expert, du nom des structures créatrice et détentrice et l'URL de contact
+      summary: B6b - Mini fiche dossier
+      security: []
+      parameters:
+        - name: id_dossier
+          in: path
+          description: ID du dossier qui peut être obtenu via le service B5
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '404':
+          description: La ressource demandée n'existe pas. Le dossier demandé ne figure pas dans la base de données.
+  /dossiersoge/dossiers/{id_dossier}/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+        Ce service permet d’obtenir toutes les informations d’un dossier Géofoncier identifié par son ID.
+
+      summary: B6 - Lecture d'un dossier
+      parameters:
+        - name: id_dossier
+          in: path
+          description: ID du dossier qui peut être obtenu via le service B5
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucun cabinet associé au GE numéro ...
+
+            -L'identifiant de la ressource dossier est incorrect ...
+
+            -Vous n'avez pas le droit d'accéder à ce dossier. Le cabinet associé au GE numéro ... est le ... . Le cabinet détenteur du dossier demandé est le ...
+        '403':
+          description: Accès suspendu en attente du règlement de la redevance annuelle. La facturation de la redevance annuelle est sans règlement depuis plus de 90 jours.
+        '404':
+          description: La ressource demandée n'existe pas. Le dossier demandé ne figure pas dans la base de données.
+    put:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet de mettre à jour les informations d’un dossier Géofoncier identifié par son URI.
+
+       S’agissant d’un processus de mise à jour, aucun de ces 10 paramètres n’est obligatoire.
+
+       L’envoi de(s) paramètre(s) suivant(s) à vide(s) à pour effet d’effacer les informations existantes
+
+         -  enr_memo:""
+         -  op_code:[]
+         -  dmpc_ref:[]
+         -  cadastre:[]
+         -  cli_identifiant:[]
+         -  enr_extra:{}
+         -  enr_geom_wkt: null
+
+       L’envoi de(s) paramètre(s) suivant(s) à vide(s) est impossible, une erreur vous sera remontée:
+         -  enr_ref_dossier:""
+         -  enr_ge_createur:""
+         -  localisant:[]
+         -  enr_statut:""
+         -  enr_visible: ""
+         -  enr_date_dossier: ""
+
+
+       -Remarque 1 au moment de l’insertion des localisants, un test est effectué pour vérifier que le(s) localisant(s) se situe(nt) bien sur la commune indiquée (enr_code_insee). Les localisants pour lesquels le test échoue sont refusés.
+
+       -Remarque 2  les éléments  enr_cab_createur,  enr_cab_detenteur et enr_code_insee ne peuvent pas être mis à jour sauf à supprimer puis recréer le dossier.
+
+      # enr_memo:""
+      # op_code:[]
+      # dmpc_ref:[]
+      # cadastre:[]
+      # cli_identifiant:[]
+      # enr_extra:{}
+      # # -enr_geom_wkt: 'null'
+
+
+
+
+      summary: B8 - Mise à jour d'un dossier
+      parameters:
+        - name: id_dossier
+          in: path
+          description: ID du dossier qui peut être obtenu via le service B5
+          required: true
+          schema:
+            items:
+              type: string
+      requestBody:
+        description: Mise à jour d'un dossier
+        content:
+          application/json:
+            schema:
+             $ref: '#/components/schemas/DossierMiseAJour'
+
+      responses:
+        '200':
+          description: Mise à jour
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '206':
+          description: Mise à jour avec erreurs
+        '401':
+          description: |
+           -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+           -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description:  |
+
+           -Aucun cabinet associé au GE numéro ...
+
+           -Votre compte utilisateur ne vous permet pas de mettre à jour cette ressource.
+
+           -Le géomètre-expert indiqué n'a jamais exercé dans le cabinet créateur
+
+
+           -Le format de la date du dossier n'a pas été reconnu. La date du dossier doit être envoyée au format YYYY-MM-JJ ou JJ-MM-AAAA.
+
+           -La date du dossier doit être antérieure ou égale à la date de versement dans Géofoncier.
+
+           -La date du dossier doit être postérieure au 1er janvier 1900.
+
+           -Echec lors de l'insertion du dossier. Une erreur s'est produite loes de l'insertion SQL du dossier. Le message d'erreur SQL est fourni dans la balise
+
+           -Echec car la liste des localisants fournis est vide
+
+        '403':
+          description: Accès suspendu en attente du règlement de la redevance annuelle. La facturation de la redevance annuelle est sans règlement depuis plus de 90 jours.
+        '404':
+          description: La ressource à mettre à jour n'a pas été trouvée.
+    delete:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet de supprimer un dossier Géofoncier identifié par son ID
+
+      summary:  B9 - Suppression d'un dossier
+      parameters:
+        - name: id_dossier
+          in: path
+          description: ID du dossier qui peut être obtenu via le service B5
+          required: true
+          schema:
+            items:
+              type: string
+
+      responses:
+        '204':
+          description: Supression du dossier a été faite avec succès
+
+        '401':
+          description: |
+           -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+           -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description:  |
+
+           -Aucun cabinet associé au GE numéro ...
+           -Vous n'avez pas le droit d'accéder à ce document. Le cabinet associé au GE numéro ... est le ... . Le cabinet détenteur du document demandé est le ...
+
+        '404':
+          description: La ressource demandée n'existe pas.
+  /dossiersoge/documents/{id_document}/:
+    get:
+      tags:
+        - dossiersoge
+      description: Ce service permet de consulter un document dématérialisé identifié par son URI.
+
+      summary: B10 - Lecture d'un document
+      parameters:
+        - name: id_document
+          in: path
+          description: ID du document. Obtenu via le service B6
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucun cabinet associé au GE numéro ...
+
+            -Vous n'avez pas le droit d'accéder à ce document. Le cabinet associé au GE numéro ... est le ... . Le cabinet détenteur du document demandé est le ...
+        '404':
+          description: La ressource demandée n'existe pas.
+        '500':
+          description: Le dossier de rattachement du document demandé n'a pas été trouvé. Si vous obtenez cette erreur, merci de contacter le support Géofoncier
+    put:
+      tags:
+        - dossiersoge
+      description: Ce service permet de mettre à jour les informations d’un document dématérialisé identifié par son URI.
+
+      summary: B13 - Mise à jour d'un document
+      parameters:
+        - name: id_document
+          in: path
+          description: ID du document
+          required: true
+          schema:
+            items:
+              type: string
+      requestBody:
+        description: Mise à jour d'un document
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                doc_visible:
+                  type: boolean
+                  description:   Visibilité du document aux clients du dossier
+                  example: False
+                doc_code:
+                  type: string
+                  description: Code du type de document
+                  example: 1PVa
+                doc_description:
+                  type: string
+                  description: Description du document. Obligatoire si doc_visible=true
+                  example: "test description"
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucun cabinet associé au GE numéro ...
+
+            -Vous n'avez pas le droit d'accéder à ce document. Le cabinet associé au GE numéro ... est le ... . Le cabinet détenteur du document demandé est le ...
+        '404':
+          description: La ressource demandée n'existe pas.
+        '500':
+          description: Le dossier de rattachement du document demandé n'a pas été trouvé. Si vous obtenez cette erreur, merci de contacter le support Géofoncier
+    delete:
+      tags:
+        - dossiersoge
+      description: Ce service permet de supprimer un document dématérialisé identifié par son URI.
+
+      summary: B14 - Suppression d'un document
+      parameters:
+        - name: id_document
+          in: path
+          description: ID du document. Obtenu via le service B6
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '204':
+          description: Document supprimé avec succès
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucun cabinet associé au GE numéro ...
+
+            -Vous n'avez pas le droit d'accéder à ce document. Le cabinet associé au GE numéro ... est le ... . Le cabinet détenteur du document demandé est le ...
+        '404':
+          description: La ressource demandée n'existe pas.
+        '500':
+          description: Le dossier de rattachement du document demandé n'a pas été trouvé. Si vous obtenez cette erreur, merci de contacter le support Géofoncier
+  /dossiersoge/documents/fichier/{id_document}/:
+    get:
+      tags:
+        - dossiersoge
+      description: Ce service permet d’accéder au fichier d’un document dématérialisé identifié par son URI.
+
+      summary: B11 - Téléchargement d'un document
+      parameters:
+        - name: id_document
+          in: path
+          description: ID du document. Obtenu via le service B6
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucun cabinet associé au GE numéro ...
+
+            -Vous n'avez pas le droit d'accéder à ce document. Le cabinet associé au GE numéro ....
+        '404':
+          description: La ressource demandée n'existe pas.
+        '500':
+          description: Impossible d'ouvrir le fichier. Extension non reconnue. Le fichier n'a pu être ouvert car son extension n'est pas reconnue parmi pdf/jpg/jpeg/tif/tiff/bmp/png.
+  /dossiersoge/documents/thumb/{id_document}/:
+    get:
+      tags:
+        - dossiersoge
+      description: Ce service permet d’accéder à l'aperçu d’un document dématérialisé identifié par son URI. Ce service est accessible sans authentification.
+
+      summary: B11b - Aperçu d'un document
+      security: []
+      parameters:
+        - name: id_document
+          in: path
+          description: ID du document. Obtenu via le service B6
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '404':
+          description: La ressource demandée n'existe pas.
+        '500':
+          description: |
+            -Le dossier de rattachement du document demandé n'a pas été trouvé. Si vous obtenez cette erreur, merci de contacter le support Géofoncier
+
+            -Impossible d'ouvrir le fichier. Extension non reconnu. Le fichier n'a pu être ouvert car son extension n'est pas reconnue parmi pdf/jpg/jpeg/tif/tiff/bmp/png.
+  /dossiersoge/documents/:
+    post:
+      tags:
+        - dossiersoge
+      description: Ce service permet de verser un document dématérialisé sur Géofoncier.
+
+      summary: B12 - Versement d'un document
+      requestBody:
+        description: Versement d'un document
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                dossier:
+                  type: string
+                  description: ID du dossier (32 caractères)
+                doc_visible:
+                  type: boolean
+                  description:   Visibilité du document aux clients du dossier
+                doc_code:
+                  type: string
+                  description: Code du type de document
+                doc_description:
+                  type: string
+                  description: Description du document. Obligatoire si doc_visible=true
+                file:
+                  type: string
+                  format: binary
+              required:
+                - dossier
+                - doc_visible
+                - doc_code
+                - file
+      responses:
+        '200':
+          description: Versement du document reussi
+          content:
+           application/json:
+            schema:
+                type: object
+           application/xml:
+            schema:
+                type: object
+        '401':
+          description: |
+           -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+           -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description:  |
+           -La valeur suivante n'est pas renseignée. Pour verser un document, certains paramètres sont obligatoires. Cette erreur signifie que des paramètres obligatoires n'ont pas été envoyés et indique lesquels.
+
+           -Le code document ... n'existe pas. Le document ne peut pas être joint au dossier.
+
+           -Le dossier de rattachement du document à ajouter n'a pas été trouvé.
+
+           -L'identifiant de la ressource dossier est incorrect.
+
+           -Aucun cabinet associé au GE numéro ...
+
+           -Votre compte utilisateur est attaché au cabinet ... et ne vous permet pas d'ajouter un document à ce dossier, car son cabinet detenteur est ...
+
+           -La taille du document est trop grande. La taille limite est de 10 Mo.
+
+           -Le document n'a pas été envoyé ou le form name indiqué n'est pas correct. Si la balise form_name n'est pas envoyée, le parametre contenant le document doit être nommée "file".
+
+           -Le format du document envoyé n'est pas correct. Seuls les fichiers images, PDF, DXF ou DWG peuvent être transmis.
+
+           -Le type de document ... n'est autorisé que pour les dossiers des départements 57, 67 ou 68.
+
+           -Le fichier n'a pas pu être rattaché au dossier. Impossible de le référencer dans la base.
+        '500':
+          description: Impossible de copier le fichier envoyé. Si vous obtenez cette erreur, merci de contacter le support Géofoncier.
+  /dossiersoge/rapportconsultation/geographique/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+         Ce service permet d’obtenir un rapport de consultation sous forme d’un fichier PDF de la même façon que sur la version professionnelle du portail Géofoncier.
+
+      summary: B15 - Obtenir un rapport de consultation géographique
+      parameters:
+        - name: bbox
+          in: query
+          description: xmin,ymin,xmax,ymax
+          required: true
+          schema:
+            items:
+              type: string
+        - name: srs
+          in: query
+          description: Projection parmi IGNF:LAMB93 - IGNF:UTM20W84GUAD - IGNF:UTM22RGFG95 - IGNF:RGR92UTM40S - IGNF:RGM04UTM38S
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Rapport géographique en PDF
+          content:
+            application/json:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Paramètre SRS incorrect. Les projections autorisées sont les suivantes : IGNF:LAMB93 - IGNF:UTM20W84GUAD - IGNF:UTM22RGFG95 - IGNF:RGR92UTM40S - IGNF:RGM04UTM38S
+
+            -Paramètre BBOX incorrect. La surface de la bbox ne doit pas être nulle.
+
+            -Paramètre BBOX incorrect. Chaque côté de la bbox ne doit pas excéder 3000 m.
+        '500':
+          description:  Le fichier pdf est introuvable. Erreur serveur, merci de contacter le support Géofoncier
+  /dossiersoge/rapportconsultation/simple/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+        Ce service permet d’obtenir un rapport de consultation pour un dossier donné sous forme d’un fichier PDF de la même façon que sur la version professionnelle du portail Géofoncier.
+
+      summary: B16 - Obtenir un rapport de consultation simple
+
+      parameters:
+        - name: dossier
+          in: query
+          description: ID du dossier
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Rapport simple au format PDF
+          content:
+            application/json:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description:  L'identifiant de la ressource dossier est incorrect.
+        '404':
+          description:  Le dossier demandé n'existe pas.
+        '500':
+          description:  Le fichier pdf est introuvable. Erreur serveur, merci de contacter le support Géofoncier
+  /dossiersoge/diagnostic/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet d’obtenir le nombre d'anomalies de chaque type pour tous les dossiers du GE connecté.
+
+       ATTENTION les informations ne sont pas en temps réel, mais mises à jour toutes les nuits.
+
+      summary: B17 - Diagnostic des dossiers
+
+      responses:
+        '200':
+          description: Nombre d'anomaies pour chaque type
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+  /dossiersoge/diagnostic/tableaudebord/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet d’obtenir  tableau affichant les informations identiques à celle figurant dans le tableau de bord du module de contrôle.
+      summary: B20 - Tableau de bord
+      parameters:
+        - name: id_ge
+          in: query
+          description: Identifiant du Géomètre
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Tableau de bord
+          content:
+            application/json:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Aucune donnée n'est disponible pour ce GE
+
+            -Id du GE n'est pas fourni
+  /dossiersoge/diagnostic/{type_anomalie}/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet d’obtenir la liste des dossiers du GE connecté pour un type d'anomalie spécifié.
+
+       ATTENTION les informations ne sont pas en temps réel, mais mises à jour toutes les nuits.
+
+      summary: B18 - Dossiers affectés par une anomalie
+      parameters:
+        - name: type_anomalie
+          in: path
+          description: Anomalie à rechercher
+          example: sans_localisant
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Nombre d'anomalies pour chaque type
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+  /dossiersoge/dossiers/autocomplete/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service d'autocomplétion permet d’obtenir une liste de références dossiers classées par ordre alphabétique à partir d'un début de référence dossier.
+
+       Le service retourne 10 items par défaut, mais cette valeur peut être personnalisée via le paramètre 'limit'
+
+      summary: B19 - Autocomplétion des références dossiers
+      parameters:
+        - name: text
+          in: query
+          description: Début de référence dossier
+          example: A8
+          required: true
+          schema:
+            items:
+              type: string
+        - name: limit
+          in: query
+          description: Nombre d'item à retourner (10 par défaut)
+          example: 10
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Nombre d'anomaies pour chaque type
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+  /dossiersoge/croquis/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet de récuperer la liste des croquis  pour un utilisateur donné en se basant sur le cabinet auquel il appartient
+
+      summary: B21 - Liste des croquis d'un ge
+      responses:
+        '200':
+          description: Liste des croquis d'un ge
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '404':
+          description: |
+            -Aucun croquis n'a étè trouvé
+    post:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet d'ajouter un croquis à un dossier
+
+      summary: B22 - Ajout d'un croquis à un dossier
+      requestBody:
+        description: Versement d'un croquis
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cro_api:
+                  type: string
+                  description: ID du dossier (32 caractères)
+                cro_description:
+                  type: string
+                  description: Description du croquis
+                cro_geojson:
+                  type: string
+                  description: Geojson des objets composant le croquis
+                  example:  {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            125.6,
+                            10.1
+                        ]
+                    },
+                    "properties": {
+                        "name": "Test"
+                    }
+                }
+              required:
+                - cro_api
+                - cro_description
+                - cro_geojson
+      responses:
+        '200':
+          description: Détail du croquis ajouté au dossier
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Le nombre maximale est de 10 croquis par enregistrement.Veuillez en supprimez avant d'en ajouter
+            -Le couple cro_api/decription existe déjà
+  /dossiersoge/croquis/{id}/:
+    get:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet de récuperer le detail d'un croquis en transmettant sa clé primaire (id)
+
+         Cette information peut eêtre récuperer avec le service B21 qui liste les croquis disponible pour un utilisateur donné
+      summary: B23 - Récupération du détail d'un croquis
+      parameters:
+        - name: id
+          in: path
+          description: Id du croquis (service B23)
+          required: true
+          schema:
+            items:
+              type: string
+
+      responses:
+        '200':
+          description: Détail du croquis
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '404':
+          description: |
+            -Aucun croquis n'a étè trouvé
+    put:
+      tags:
+        - dossiersoge
+      description:  |
+        Ce service permet de mettre à jour un croquis en transmettant sa clé primaire (id)
+
+        Cette information peut eêtre récuperer  avec le service B21 qui liste les croquis disponible pour un utilisateur donné
+      summary: B24 - Mise à jour d'un croquis
+      parameters:
+        - name: id
+          in: path
+          description: Id du croquis (service B23)
+          required: true
+          schema:
+            items:
+              type: string
+      requestBody:
+        description: Versement d'un croquis
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cro_api:
+                  type: string
+                  description: ID du dossier (32 caractères)
+                cro_description:
+                  type: string
+                  description: Description du croquis
+                cro_geojson:
+                  type: string
+                  description: Geojson des objets composant le croquis
+                  example:  {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [
+                            125.6,
+                            10.1
+                        ]
+                    },
+                    "properties": {
+                        "name": "Test"
+                    }
+                }
+      responses:
+        '200':
+          description: Détail du croquis ajouté au dossier
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '400':
+          description: |
+            -Le nombre maximale est de 10 croquis par enregistrement.Veuillez en supprimez avant d'en ajouter
+            -Le couple cro_api/description existe déjà
+    delete:
+      tags:
+        - dossiersoge
+      description:  |
+       Ce service permet de supprimer un croquis en transmettant sa clé primaire (id)
+
+         Cette info est récupérable avec le service B21 qui liste les croquis disponible pour un utilisateur donné
+      summary: B25 -Suppression d'un croquis
+      parameters:
+        - name: id
+          in: path
+          description: Id du croquis (service B23)
+          required: true
+          schema:
+            items:
+              type: string
+
+      responses:
+        '204':
+          description: Suppression du croquis réussi
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '401':
+          description: |
+            -Renseigner login et mot de passe Les identifiants n'ont pas été trouvé dans le header Authorization
+
+            -Login ou mot de passe incorrect. Les identifiants fournis n'ont pas permis l'authentification.
+        '404':
+          description: |
+            -Aucun croquis n'a étè trouvé
+  #MES DOSSIERS
+  /mes_dossiers/abonnement/status/:
+    get:
+      tags:
+        - mes_dossiers
+      description: |
+       Ce service permet d’obtenir les informations / status de l'abonnement de l'utilisateur professionnel connecté.
+      summary: E1 - Obtenir le status de l'abonnement
+      responses:
+        '200':
+          description: Résultat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Abonnement'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Abonnement'
+        '400':
+          description: Une erreur s'est produite lors de la recuperation de l'abonnement
+
+  /mes_dossiers/relations/status/{key}:
+    get:
+      tags:
+        - mes_dossiers
+      description: |
+       Ce service permet d’obtenir les relations du professionnel avec ses Géomètres-experts, avec sa clé.
+      summary: E2 - Obtenir les relations du PRO
+      parameters:
+        - name: key
+          in: path
+          description: Identifiant (key) du l'utilisateur professionnel
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationsStatus'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/RelationsStatus'
+        '401':
+          description: "detail: Informations d'authentification non fournies."
+    
+  /mes_dossiers/dashboard/{key}:
+    get:
+      tags:
+        - mes_dossiers
+      description: |
+       Ce service permet d’obtenir de lister tous les dossiers et les documents partagés de l'utilisateur professionnel avec sa clé.
+      summary: E3 - Obtenir la liste tous les dossiers et les documents partagés
+      parameters:
+        - name: key
+          in: path
+          description: Identifiant (key) du l'utilisateur professionnel
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardPro'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/DashboardPro'
+        '401':
+          description: "detail: Informations d'authentification non fournies."
+
+  /mes_dossiers/geojson/:
+    get:
+      tags:
+        - mes_dossiers
+      description: |
+       Ce service permet d’obtenir un geojson avec la geolocalisation de tous les dossiers partagés de l'utilisateur connecté.
+      summary: E4 - Obtenir du geojson de tous les dossiers partagés
+      responses:
+        '200':
+          description: Résultat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MesDossiersGeojson'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/MesDossiersGeojson'
+        '401':
+          description: "detail: Informations d'authentification non fournies."
+
+  /mes_dossiers/documents/fichier/{enr_api_doc_sha1}/:
+    get:
+      tags:
+        - mes_dossiers
+      description: |
+       Ce service permet d’obtenir le fichier partagé du Géomètre-expert.
+      summary: E5 - Obtenir un fichier partagé
+      parameters:
+        - name: enr_api_doc_sha1
+          in: path
+          description: Identifiants du dossier (enr_api) et du fichier (doc_sha1) concatené
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+            application/octet-stream: {}
+        '401':
+          description: "detail: Le jeton d'authentification n'est pas valide."
+        '404':
+          description: "detail: Pas trouvé."
+
+  /mes_dossiers/dossiers/mini/{id_dossier}:
+    get:
+      tags:
+        - mes_dossiers
+      description:  |
+        Ce service permet d'obtenir des informations restreintes sur un dossier sans en être son propriétaire.
+
+        Les informations renvoyées correspondent à celles indiquées dans la fiche dossier lors du clic sur un localisant sur la carte du portail Géofoncier.
+
+        En particulier, on obtient directement les libellés en clair des opérations du dossier, du nom du Géomètre-Expert, du nom des structures créatrice et détentrice et l'URL de contact
+      summary: E6 - Mini fiche mes dossier
+      security: []
+      parameters:
+        - name: id_dossier
+          in: path
+          description: ID du dossier qui peut être obtenu via le service B5
+          required: true
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Résultat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MesDossiersMini'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/MesDossiersMini'
+        '404':
+          description: La ressource demandée n'existe pas. Le dossier demandé ne figure pas dans la base de données.
+
+  #RFU
+  /rfuoge/getcapabilities:
+     get:
+      tags:
+        - rfuoge
+      description:  |
+       Ce service permet d’obtenir l’ensemble des nomenclatures du RFU et la liste des géomètres-experts pour lesquels l'utilisateur peut modifier ou supprimer les sommets.
+      summary: C1 - Obtenir les nomenclatures du RFU et les GE autorisés
+      parameters:
+        - name: zone
+          in: query
+          description: |
+            Territoire de travail : metropole, antilles, mayotte, guyane ou reunion
+          required: true
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Nomenclature et GE autorisés
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '400':
+          description: |
+            __400-3__ - Le nom de la zone doit etre indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes: metropole, antilles, guyane, reunion ou mayotte
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+  /rfuoge/getmycapabilities:
+     get:
+      tags:
+        - rfuoge
+      description:  |
+       Ce service permet d’obtenir l’ensemble des nomenclatures du RFU et la liste des géomètres-experts pour lesquels l'utilisateur peut modifier ou supprimer les sommets.
+      summary: C2 - Obtenir les capacités d'une clé logiciel
+      parameters:
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Détails de la clé logiciel
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+  /rfuoge/extraction:
+     get:
+      tags:
+        - rfuoge
+      description:  |
+       Ce service permet d’extraire le RFU sur une emprise géographique donnée.
+
+       Cette emprise peut être exprimée sous forme du bbox (xmin, ymin, xmax, ymax) ou sous forme d'un polygone fermé (x1 y1, x2 y2, x3 y3, x4 y4, x1 y1).
+
+       En réponse les objets RFU __intersectés__ par l’emprise géographique indiquée sont décrits selon la structure ci-dessous.
+
+       La taille de l'emprise est limitée en fonction de votre clé (cf. C2)
+      summary: C3 - Extraction du RFU
+      parameters:
+        - name: bbox
+          in: query
+          description: |
+            Coordonnées géographiques de l'emprise à extraire dans le système géodésique du territoire.
+            Ex : 5.1975,43.3328,5.1983,43.3335
+            La saisie d'au moins un des 2 champs (bbox ou polygon) est obligatoire.
+          schema:
+            items:
+              type: string
+        - name: polygon
+          in: query
+          description: |
+            Polygone de l'emprise à extraire dans le système géodésique du territoire.
+            Ex : 55.36272 -21.26523, 55.36272 -21.26321, 55.36491 -21.26321, 55.36491 -21.26523, 55.36272 -21.26523
+            La saisie d'au moins un des 2 champs (bbox ou polygon) est obligatoire.
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Liste d'objets RFU
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+  /rfuoge/changeset:
+    get:
+      tags:
+        - rfuoge
+      description:  |
+        Ce service permet de rechercher des changesets en filtrant sur plusieurs critères : numéro de ge, date du versement, etc...
+      summary: C4 - Recherche de changesets
+      parameters:
+        - name: ge
+          in: query
+          description: Identifiant de géomètre-expert créateur
+          schema:
+            items:
+              type: string
+        - name: enr_api_dossier
+          in: query
+          description: Identifiant d'une ressource dossier pour laquelle le changeset a été créé
+          schema:
+            items:
+              type: string
+        - name: date_ouvert
+          in: query
+          description: Retourne les changesets ouverts à cette date
+          schema:
+            items:
+              type: string
+        - name: debut
+          in: query
+          description: Retourne les changesets dans la date d'ouverture est postérieure à cette date
+          schema:
+            items:
+              type: string
+        - name: fin
+          in: query
+          description: Retourne les changesets dans la date d'ouverture est antérieure à cette date
+          schema:
+            items:
+              type: string
+        - name: ouvert_le
+          in: query
+          description: Retourne les changesets dans la date d'ouverture est égale à cette date
+          schema:
+            items:
+              type: string
+        - name: ferme_le
+          in: query
+          description: Retourne les changesets dans la date de fermeture est égale à cette date
+          schema:
+            items:
+              type: string
+        - name: ouvert
+          in: query
+          description: Retourne les changesets ouverts
+          schema:
+            items:
+              type: string
+        - name: zone
+          in: query
+          description: |
+            Territoire : metropole, guyane, reunion, mayotte ou antilles
+          schema:
+            items:
+              type: string
+        - name: limit
+          in: query
+          description: Nombre maximal de résultats
+          schema:
+            items:
+              type: integer
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Liste des changesets filtrés sur les critères
+          content:
+            application/json:
+              schema:
+                  type: object
+            application/xml:
+              schema:
+                  type: object
+        '400':
+          description: |
+            __400-3__ - Le nom de la zone doit etre indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes: metropole, antilles, guyane, reunion ou mayotte<br>
+            __400-36__ - Le filtre 'ge' semble incorrect
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+    post:
+      tags:
+        - rfuoge
+      description: Ce service permet de créer un nouveau changeset
+      summary: C5 - Création d'un changeset
+      parameters:
+        - name: zone
+          in: query
+          description: Territoire
+          required: True
+          schema:
+            items:
+              type: string
+        - name: commentaire
+          in: query
+          description: Texte facultatif
+          schema:
+            items:
+              type: string
+        - name: enr_api_dossier
+          in: query
+          description: Identifiant d'une ressource dossier
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Changeset créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Changeset'
+            application/xml:
+              schema:
+                type: object
+        '400':
+          description: |
+            __400-3__ - Le nom de la zone doit etre indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes: metropole, antilles, guyane, reunion ou mayotte<br>
+            __400-37__ - La valeur de enr_api_dossier est incorrecte. Attention à ne pas faire figurer le préfixe de zone.<br>
+            __400-38__ - Aucun cabinet associé au GE numéro ...
+        '403':
+          description: |
+            __403-10__ - Le dossier associé au changeset n'est pas détenu par votre cabinet.<br>
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+  /rfuoge/changeset/{zone_prefixe}{id_changeset}:
+    get:
+      tags:
+        - rfuoge
+      description:  |
+        Ce service permet de rechercher des changesets en filtrant sur plusieurs critères : numéro de ge, date du versement, etc...
+      summary: C4b - Lecture d'un changeset
+      parameters:
+        - name: zone_prefixe
+          in: path
+          required: true
+          description: |
+            Préfixe de la zone : m (Métropole), a (Antilles), g (Guyane), r (Réunion) ou y (Mayotte)
+          schema:
+            items:
+              type: string
+        - name: id_changeset
+          in: path
+          required: true
+          description: Identifiant du changeset
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Détail d'un changeset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Changeset'
+            application/xml:
+              schema:
+                  type: object
+        '400':
+          description: |
+            __400-4__ - L'idenfifiant du changeset n'est pas correctement renseigné
+            __400-5__ - Le changeset $ n'existe pas<br>
+            __400-35__ - La zone figurant en en-tete de l'identifiant du changeset doit prendre une des valeurs suivantes : m, a, g, r ou y.<br>
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+    put:
+      tags:
+        - rfuoge
+      description: |
+        Avec le paramètre __commentaire__ : ce service permet de mettre à jour un changeset identifié par son URI.
+        Avec le paramètre __request__=close : ce service permet de fermer un changeset identifié par son URI.
+        __Remarques__ :
+        * il est impossible de changer le commentaire d’un changeset dès lors que celui-ci a été fermé.
+        * seul le détenteur d’un changeset peut le fermer, toutefois les changesets restés ouverts sont quotidiennement et automatiquement fermés par Géofoncier voire supprimés si aucune intervention sur des objets RFU ne leur sont associée.
+      summary: C6 - Mise à jour du commentaire et fermeture d'un changeset
+      parameters:
+        - name: zone_prefixe
+          in: path
+          required: true
+          description: |
+            Préfixe de la zone : m (Métropole), a (Antilles), g (Guyane), r (Réunion) ou y (Mayotte)
+          schema:
+            items:
+              type: string
+        - name: id_changeset
+          in: path
+          required: true
+          description: Identifiant du changeset
+          schema:
+            items:
+              type: string
+        - name: commentaire
+          in: query
+          description: Texte à modifier. Ne pas utiliser le paramètre __request__ simultanément.
+          schema:
+            items:
+              type: string
+        - name: request
+          in: query
+          description: Valeur "close" pour fermer le changeset. Ne pas utiliser le paramètre __commentaire__ simultanément.
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Changeset mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Changeset'
+            application/xml:
+              schema:
+                type: object
+        '400':
+          description: |
+            __400-4__ - L'idenfifiant du changeset n'est pas correctement renseigné<br>
+            __400-35__ - La zone figurant en en-tete de l'identifiant du changeset doit prendre une des valeurs suivantes : m, a, g, r ou y.
+        '403':
+          description: |
+            __403-9__ - Vous n'avez pas les droits pour mettre à jour le changeset<br>
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+        '404':
+          description: |
+            __404-1__ - Le changeset ... n'existe pas
+
+  /rfuoge/edit:
+    post:
+      tags:
+        - rfuoge
+      description: |
+        Ce service permet de créer, modifier ou supprimer des objets RFU.
+        En réponse les logs des différentes opérations d’édition sont retournés, avec les éventuelles erreurs.
+
+        Le contenu XML envoyé doit comporter les éléments suivants :
+        - une balise englobante avec comme attribut le changeset utilisé pour les opérations demandées.
+        Exemple : `<rfu changeset="16">...</rfu>`
+        - une balise pour chaque sommet ou limite à ajouter, modifier ou supprimer.
+
+        __Création d’un sommet__
+
+        Le sommet à créer doit être envoyé sous forme d’un bloc XML avec les attributs suivants :
+        - __id_noeud__ : facultatif mais utile car permet de simplifier la lecture des logs
+        - __geometrie__ : la géométrie du sommet en lon/lat WGS84 au format WKT
+        - __action="create"__ pour indiquer qu’il s’agit d’une création
+
+        Les attributs du sommet doivent obligatoirement être fournis dans des balises enfants du bloc sommet.
+
+        __Nouveauté v4__ : les champs som_ge_createur et lim_ge_createur ne sont plus nécessaires.
+        Ces informations sont directement déduites des identifiants de connexion.
+
+        Exemple :
+        ```
+        <sommet id_noeud="1" geometrie="POINT(-1.81341182 47.27198729)" action="create">
+            <som_nature>Sommet lot AFAF</som_nature>
+            <som_precision_rattachement>2</som_precision_rattachement>
+            <som_coord_est>1336029.28</som_coord_est>
+            <som_coord_nord>6241420.50</som_coord_nord>
+            <som_representation_plane>RGF93CC47</som_representation_plane>
+        </sommet>
+        ```
+
+        __Création d’une limite__
+
+        La limite à créer doit être envoyée sous forme d’un bloc XML avec les attributs suivants :
+        - __id_arc__ : facultatif mais utile car permet de simplifier la lecture des logs
+        - __geometrie__ : la géométrie de la limite en lon/lat WGS84 au format WKT
+        - __action="create"__ pour indiquer qu’il s’agit d’une création
+
+        Exemple :
+         ```
+        <limite id_arc="151397" geometrie="LINESTRING(-1.81026694 47.27513939,-1.81039299 47.27493243)" action="create"/>
+         ```
+
+        __Modification attributaire d’un sommet__
+
+        Il est possible de mettre à jour lea nature du sommet ou de verser de nouvelles coordonnées attributaires pour un sommet existant.
+
+        La position géométrique d'un sommet n'est pas modifiable, même en cas de changement des coordonnées attributaires (som_coord_est et som_coord_nord)
+        Le champ som_ge_createur sera automatiquement mis à jour lors de la modification du sommet avec l'identifiant du GE réalisant le versement. Le sommet à modifier doit être envoyé sous forme d’un bloc XML avec les attributs suivants :
+        - __id_noeud__ : l’identifiant du nœud correspondant au sommet à modifier
+        - __action="update"__ pour indiquer qu’il s’agit d’une mise à jour des attributs
+
+        Comme pour la création, les attributs du sommet doivent obligatoirement être fournis (sauf som_date_creation et som_ge_createur) dans des balises enfants du bloc sommet.
+        Exemple :
+        ```
+        <sommet id_noeud="1266593" version="1" action="update">
+            <som_nature>Pierre</som_nature>
+            <som_precision_rattachement>2</som_precision_rattachement>
+            <som_coord_est>1331029.28</som_coord_est>
+            <som_coord_nord>6241420.50</som_coord_nord>
+            <som_representation_plane>RGF93CC47</som_representation_plane>
+        </sommet>
+        ```
+
+        __Nouveauté v4__ : Dans le cas où les nouvelles coordonnées sont "hors tolérance", il est nécessaire d'ajouter au sommet une balise `<attestation_qualite>true</attestation_qualite>`.
+        Cette balise atteste de la qualité du sommet versé, malgré l'écart, et permet que le versement soit accepté.
+
+        Seule la modification de la nature du sommet entraine une nouvelle version du sommet. Si des nouvelles coordonnées sont versées sans modification de la nature du sommet, une nouvelle détermination est ajoutée au sommet sans que celui-ci soit directement modifié.
+
+        __Suppression d’un sommet__
+
+        Le sommet à supprimer doit être envoyé sous forme d’un bloc XML avec les attributs suivants :
+        - __id_noeud__ : l’identifiant du nœud correspondant au sommet à supprimer
+        - __action="delete"__ pour indiquer qu’il s’agit d’une suppression
+
+        La géométrie et les attributs du sommet n’ont pas besoin d’être fournis.
+
+        Exemple :
+        `<sommet id_noeud="1" version="1" action="delete"></sommet>`
+
+        __Attention__ : il n'est possible de supprimer que les sommets créés par certains géomètres-experts (cf C1).
+
+        __Suppression d’une limite__
+
+        La limite à supprimer doit être envoyée sous forme d’un bloc XML avec les attributs suivants :
+        - __id_arc__ : l’identifiant de l’arc correspondant à l’arc à supprimer
+        - __action="delete"__ pour indiquer qu’il s’agit d’une suppression
+
+        La géométrie et les attributs de la limite n’ont pas besoin d’être fournis.
+        Exemple :
+        `<limite id_arc="1" version="1" action="delete"></limite>`
+
+        Les créations, suppressions et modifications attributaire peuvent être envoyées dans une même requête. Cependant, les suppressions étant effectuées en premier, il n’est pas possible de supprimer un objet dont la demande de création serait dans la même requête XML.
+
+      summary: C7 - Edition des objets RFU
+      parameters:
+        - name: zone
+          in: query
+          description: Territoire
+          required: True
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      requestBody:
+        description: Les objets RFU à éditer
+        required: true
+        content:
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/sommet'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: |
+            __400-1__ - La clé fournie ne vous permet pas de faire de mise à jour.
+            __Explication__ : la clé logiciel que vous utilisez ne dispose pas des droits pour mettre à jour le RFU.<br>
+            __400-2__ - Erreur lors de la lecture des données d'édition<br>
+            __400-3__ - Le nom de la zone doit etre indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes : metropole, antilles, guyane, reunion ou mayotte<br>
+            __400-4__ - L'attribut changeset est manquant<br>
+            __400-5__ -  Le changeset $ n'existe pas.<br>
+            __400-6__ -  Le changeset $ est fermé.<br>
+            __400-7__ -  L'attribut 'action' est manquant pour le sommet $.<br>
+            __400-8__ -  L'attribut 'action' est incorrect pour le sommet $.<br>
+            __400-9__ -  L’attribut obligatoire 'id_noeud' n’est pas renseigné.<br>
+            __400-10__ -  Le sommet $ n'existe pas dans la zone $.<br>
+            __400-12__ -  Projection manquante. Veuillez vérifier l'attribut 'som_representation_plane'<br>
+            __400-13__ -  Projection incorrecte: $<br>
+            __400-14__ -  Classe de rattachement incorrecte ou manquante. Veuillez vérifier l'attribut 'som_precision_rattachement'<br>
+            __400-15__ -  Les coordonnées du noeud $ ne sont pas comprise dans l'emprise du territoire: $.<br>
+            __400-16__ -  Une valeur est manquante parmis les attributs de création du sommet $. Geométrie=$ / Nature du noeud=$ / Coodonnées Est=$ Coordonnées Nord=$<br>
+            __400-17__ -  Une valeur est manquante parmis les attributs de modification du sommet $. Nature du noeud=$ / Coodonnées Est=$ Coordonnées Nord=$<br>
+            __400-18__ -  L’attribut obligatoire 'id_arc' n’est pas renseigné<br>
+            __400-19__ -  La limite $ n'existe pas ou plus. Annulation globale du versement RFU.<br>
+            __400-20__ -  La balise $ est manquante pour la limite $<br>
+            __400-21__ -  L'attribut 'geometrie' pour la limite $ est manquant.<br>
+            __400-22__ -  Les coordonnées de la limite $ ne sont pas comprises dans l'emprise du territoire: $.<br>
+            __400-23__ -  Echec de la modification de la limite $. La limite n'existe pas dans la zone $<br>
+            __400-24__ -  Erreur d'intégrité avec la base de donnée suite à l'édition d'un sommet: 'Message systeme'<br>
+            __400-25__ -  Erreur d'intégrité avec la base de donnée suite à l'édition d'une limite: 'Message systeme'<br>
+            __400-26__ -  Erreur lors de l'enregistrement de l'action de suppression du sommet $.<br>
+            __400-27__ -  Suppression impossible du sommet $, des limites y sont liées. Liste des objets concernés: liste des identifiants.<br>
+            __400-28__ -  Demande de création de la limite refusée. Sa longueur est trop faible, inférieur à la tolérance.<br>
+            __400-29__ -  Demande de création de la limite refusée. Celle-ci intersecte au moins une limite existante. Liste des objets concernés: listes des identifiants. Coordonnés: POINT(x1, y1), POINT(x2, y2), POINT(x3, y3).<br>
+            __400-30__ -  Demande de modification du sommet refusée. Le sommet n'est pas ou plus disponible.<br>
+            __400-31__ -  Demande de modification de la limite refusée. La limite n'est pas ou plus disponible.<br>
+            __400-32__ -  Demande de modification de la limite refusée.<br>
+            __400-33__ -  L'attribut 'action' est manquant pour la limite $.<br>
+            __400-34__ -  L'attribut 'action' est incorrecte pour la limite $.<br>
+            __400-47__ -  a distance entre la détermination versée et la position actuelle du sommet ($ cm) est supérieure à la tolérance admise pour ce sommet ($ cm)<br>
+            __400-48__ -  Impossible de supprimer le noeud $, il existe plus d'une détermination active pour ce sommet.<br>
+            __400-50__ -  Impossible de supprimer le noeud $, la détermination associé au sommet a été versée par un autre GE.<br>
+            __400-51__ -  La nature d'un sommet RFU ne peut pas être vide.<br>
+
+        '403':
+          description: |
+            __403-1__ - Vous ne pouvez pas utiliser le changeset $<br>
+            __403-2__ -  Vous n'etes pas autorisé à supprimer le sommet id = $.<br>
+            __403-3__ -  Vous devez être le créateur de chaque sommet.<br>
+            __403-5__ -  Vous ne pouvez pas modifier le sommet id = $.<br>
+            __403-6__ -  Vous devez être le créateur de chaque limite.<br>
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+
+
+  /rfuoge/sommet/{id_sommet}:
+    get:
+      tags:
+        - rfuoge
+      description:  |
+        Ce service permet d’obtenir des informations détaillées sur un sommet RFU.
+        Selon la valeur indiquée dans les paramètres "__r__" et "__version__", ce service permet de retourner 3 types d'informations autour d'un sommet :
+        * r = versions : liste des version du sommet (C8)
+        * version = x ou last : détail d'une version x ou de la dernière version du sommet (C9)
+        * r = limites : limites associées au sommet (C10)
+        * r = determination : liste des déterminations versées pour le sommet (C11)
+      summary: C8/C9/C10/C11 Sommet - Informations sur un sommet RFU
+      parameters:
+        - name: id_sommet
+          in: path
+          required: true
+          description: Identifiant du sommet
+          schema:
+            items:
+              type: integer
+        - name: r
+          in: query
+          description: |
+            Type de requête = versions, limites ou determination
+          schema:
+            items:
+              type: string
+        - name: version
+          in: query
+          description: |
+            Numéro de version ou 'last' pour voir le détail de la dernière version
+          schema:
+            items:
+              type: string
+        - name: zone
+          in: query
+          required: true
+          description: Territoire
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Version d'un sommet
+          content:
+            application/json:
+              schema:
+                #$ref: '#/components/schemas/sommet_version'
+                type: object
+            application/xml:
+              schema:
+                type: object
+        '400':
+          description: |
+            __400-3__ - Le nom de la zone doit etre indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes : metropole, antilles, guyane, reunion ou mayotte
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+        '404':
+          description: |
+            __404-2__ - Le noeud $ n'a pas été trouvé dans la zone $.<br>
+            __404-3__ - Le noeud $ n'est pas un sommet RFU.
+
+    put:
+      tags:
+        - rfuoge
+      description:  |
+        Ce service permet, dans certaines conditions, d\'annuler une détermination versée pour un sommet RFU.
+      summary: C12 Sommet - Annulation d\'une détermination associée à un sommet RFU
+      parameters:
+        - name: id_sommet
+          in: path
+          required: true
+          description: Identifiant du sommet
+          schema:
+            items:
+              type: integer
+        - name: id
+          in: query
+          required: true
+          description: Identifiant de la détermination
+          schema:
+            items:
+              type: integer
+        - name: r
+          in: query
+          description: |
+            Type de requête = "determination"
+          schema:
+            items:
+              type: string
+        - name: statut
+          in: query
+          description: |
+            Action = "cancel"
+          schema:
+            items:
+              type: string
+        - name: zone
+          in: query
+          required: true
+          description: Territoire
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Détermination annulée du sommet
+          content:
+            application/json:
+              schema:
+                #$ref: '#/components/schemas/sommet_determination'
+                type: object
+            application/xml:
+              schema:
+                type: object
+        '400':
+          description: |
+            __400-3__ - Le nom de la zone doit être indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes : metropole, antilles, guyane, reunion ou mayotte<br>
+            __400-49__ - Vous n'êtes pas autorisé à annuler la dernière détermination {det_id}.
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+        '404':
+          description: |
+            __404-2__ - Le noeud $ n'a pas été trouvé dans la zone $.<br>
+            __404-3__ - Le noeud $ n'est pas un sommet RFU.<br>
+            __404-6__ - La détermination {det_id} n'existe pas.
+
+  /rfuoge/limite/{id_limite}:
+    get:
+      tags:
+        - rfuoge
+      description:  |
+        Ce service permet d’obtenir des informations détaillées sur une limite RFU.
+        Selon la valeur indiquée dans les paramètres "__r__" et "__version__", ce service permet de retourner 3 types d'informations autour d'une limite :
+        * r = versions : liste des version d'une limite (C8)
+        * version = x ou last : détail d'une version x ou de la dernière version de la limite (C9)
+        * r = limites : sommets rattachés à la limite (C10)
+      summary: C8/C9/C10 Limite - Informations sur une limite RFU
+      parameters:
+        - name: id_limite
+          in: path
+          required: true
+          description: Identifiant de la limite
+          schema:
+            items:
+              type: integer
+        - name: r
+          in: query
+          description: |
+            Type de requête = "versions"
+          schema:
+            items:
+              type: string
+        - name: version
+          in: query
+          description: |
+            Numéro de version ou 'last' pour voir le détail de la dernière version
+          schema:
+            items:
+              type: string
+        - name: zone
+          in: query
+          required: true
+          description: Territoire
+          schema:
+            items:
+              type: string
+        - name: User-Agent
+          in: header
+          description: Clé logiciel
+          required: true
+          example: 3Jgsv0abrjifisx680AKGw257zSTG4
+          schema:
+            items:
+              type: string
+      responses:
+        '200':
+          description: Versions d'une limite
+          content:
+            application/json:
+              schema:
+                #$ref: '#/components/schemas/limite_version'
+                type: object
+            application/xml:
+              schema:
+                type: object
+        '400':
+          description: |
+            __400-3__ - Le nom de la zone doit etre indiqué dans les paramètres (ex : zone=metropole) et doit prendre une des valeurs suivantes : metropole, antilles, guyane, reunion ou mayotte
+        '403':
+          description: |
+            __403-12__ - Serveur d'authentification inaccessible<br>
+            __403-13__ - Login ou mot de passe incorrect<br>
+            __403-14__ - Renseigner la clé logiciel dans le User-Agent de la requête.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête<br>
+            __403-15__ - Clé logiciel incorrecte.
+              Explication : une clé logiciel est nécessaire pour ce service.
+              Elle doit figurer dans le header User-Agent de la requête. #ERROR<br>
+            __403-19__ - Jeton invalide: erreur lors de son déchiffrage<br>
+            __403-20__ - Jeton expiré.
+        '404':
+          description: |
+            __404-4__ - La limite $ n'a pas été trouvée dans la zone $.<br>
+            __404-5__  - La version $ n'existe pas pour l'objet demandé.
+
+  /rfuoge/codes_status:
+    get:
+      tags:
+        - rfuoge
+      description:  |
+        Ce service liste tous les codes existant avec leur description et le code HTTP correspondant.
+      summary: C99 Liste des codes status
+      responses:
+        '200':
+          description: Liste des codes status
+          content:
+            application/json:
+              schema:
+                #$ref: '#/components/schemas/code_status'
+                type: object
+            application/xml:
+              schema:
+                type: object
+
+  /signatures/collections/new:
+    post:
+      tags:
+        - signature
+      description:  |
+        Ce service permet de créer une nouvelle collecte de signature.
+        Pour plus d'information sur le fonctionnement général de l'application Signature, vous pouvez consulter le <a href="https://www.geofoncier.fr/ressources/doc_pdf/guide_application_signatures_electroniques.pdf" target='blank'>guide utilisateur</a>.
+
+        Vous devez être authentifié en tant que géomètre-expert pour utiliser les services de la composante SIGNATURE. L'authentification doit être réalisé via un token (bearerAuth). L'obtention d'un token se fait via un service dédié documenté ici : <a href="https://api2.preprod.geofoncier.fr/token.html" target="blank">obtenir un token</a>
+
+        Pour créer une nouvelle collecte, vous devez fournir les informations suivantes :
+         - __le fichier PDF à signer__, à uploader via le paramètre __file__
+         - __la référence du dossier__ associé à ce document (enr_ref_dossier) : il s'agit du libellé du dossier tel qu'il est défini par le géomètre-expert
+         - __le mode de facturation__ associé à la collecte (billing_mode) : il s'agit du mode de facturation (Forfaitaire ou Unitaire) tel qu'il est défini par le géomètre-expert (voir le <a href="https://www.geofoncier.fr/ressources/doc_pdf/tarifs_signature_electronique.pdf" target="blank">détails des tarifs</a>)
+         - __si c'est un PV de bornage__ (is_pv_bornage) : true ou false, déclaratif par le GE. Dans le cas d'un choix de mode de facturation unitaire de la collecte, la signature d'un PV de bornage est facturé différement d'un autre document (voir le <a href="https://www.geofoncier.fr/ressources/doc_pdf/tarifs_signature_electronique.pdf" target="blank">détails des tarifs</a>)
+         - __si c'est un DA__ (is_da) : true ou false, déclaratif par le GE.
+         - __le type de document à signer__ (doc_code) : code du type de document envoyé à la signature. Cette information sert à bien qualifier le document signé lorsqu'il est automatiquement ajouté au dossier en fin de collecte. Valeur par défaut : '9DIz' (Autre document). La liste des codes documents peut être obtenues via le service /api/dossiersoge/codesdocuments (API Dossiers), seuls les documents avec doc_signable_electroniquement = true devraient être utilisés. Si la collecte comprend plusieurs documents (possible depuis le portail si is_da = true), c'est le code du premier document de la collecte qui est retourné.
+         - __l'identifiant interne du dossier__ (enr_api_dossier) : il s'agit de l'identifiant sur 32 caractères interne à Géofoncier. Il peut être obtenu via les services l'API Dossiers, nottament le B5 qui pmermet de rechercher un dossier à partir de sa référence. Cette information est facultative mais importante car c'est elle qui permettra une fois le document signé, de le rattacher automatiquement au bon dossier dans Géofoncier.
+         - la __durée__ de la collecte (total_duration) : en jours, par défaut à 25
+         - la __fréquence de rappel__ (reminders) : en jours, permet d'indiquer à quelle fréquence les signataires seront relancés
+         - la __liste des signataires__ (signatories) : pour chaque signataires, il faut indiquer son prénom, nom, adresse email et téléphone. Ces informations sont obligatoires. On peut également ajouter une référence parcellaire si on en dispose.
+         - le __texte du mail initial__ envoyé aux signataires (convocation_email_content) : l'application propose par défaut un modèle de mail, mais celui-ci peut être remplacé par un autre texte en conservant les variables telles qu'indiquées dans le texte par défaut (voir exemple ci-dessous).
+         - le __texte du mail de rappel__ envoyé aux signataires qui n'ont pas encore signé (reminder_email_content) : idem champ précédent.
+         - 5 autres valeurs facultatives de type booléen permettant de personnaliser la configuration par défaut de la collecte :
+            * __automatic_notification__ : si à true (valeur par défaut), le document signé sera automatiquement envoyé par email aux signataires à la fin de la collecte
+            * __display_date_on_seal__ : si à true (valeur par défaut), la date sera affichée avec chaque signature
+            * __send_doc_to_ge_upon_finished__ : si à true (valeur par défaut), le géomètre-expert recevra le document signé à la fin de la collecte
+            * __get_sign_notifications__ : si à true (valeur par défaut), le géomètre-expert sera notifié après chaque signature
+            * __use_hand_signature__ : par défaut à false, permet d'autoriser la fonction de signature manuscrite.
+
+        Ces informations doivent être envoyées au format JSON dans le data du POST.
+        Un exemple est fourni dans le test du service (bouton __[ Try it out ]__)
+
+        Ce service fonctionne en POST (multipart/form-data) : les données sont envoyées dans le 'data' et le fichier dans le 'file'
+      summary: F1 - Création d'une collecte
+      parameters:
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: Informations pour la création de la collecte
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                # 'file' will be the field name in this multipart request
+                file:
+                  type: string
+                  format: binary
+                data:
+                  type: object
+                  example: |
+                    { 
+                    "enr_ref_dossier": "12345",
+                    "enr_api_dossier": "5ba94bc29d138a1e0e051f882e72b2ab",
+                    "billing_mode": "f",
+                    "doc_code": "6CAc",
+                    "is_da": false,
+                    "is_pv_bornage": false,
+                    "total_duration": 25,
+                    "reminders": 25,
+                    "signatories":[{
+                      "first_name": "OBLIGATOIRE",
+                      "last_name": "OBLIGATOIRE",
+                      "email": "OBLIGATOIRE",
+                      "mobile": "OBLIGATOIRE",
+                      "cadastral_references": "optionnel"
+                    }],
+                    "convocation_email_content": "Bonjour {{ nom }},\nSuite à l'intervention du géomètres-expert concernant votre parcelle {{ cad }}, le PV de bornage est à signer à cette adresse : {{ url }}.\n Merci de réaliser cette opération rapidement. ",
+                    "reminder_email_content": "Mail de rappel.",
+                    "automatic_notification": true,
+                    "display_date_on_seal": false,
+                    "send_doc_to_ge_upon_finished": true,
+                    "get_sign_notifications": true,
+                    "use_hand_signature": false }
+                  properties:
+                    collecte:
+                      $ref: '#/components/schemas/CollecteCreation'
+      responses:
+        '201':
+          description: Collecte créée
+        '403':
+          description: |
+            ERREUR 1 - Vous n'êtes pas autorisé à acceder à ce service.<br>
+            ERREUR 2 - Le jeton applicatif est manquant.<br>
+            ERREUR 3 - Le jeton applicatif est invalide.<br>
+            ERREUR 4 - Votre application n'a plus le droit de se connecter à l'application. Merci de contacter le support de {app_name}
+        '400':
+          description: |
+            ERREUR 5 - Données de création de collecte invalides. Format attendu: {'key': 'value'...}"<br>
+            ERREUR 6 - Aucun GE signataire ne correpond.<br>
+            ERREUR 7 - Aucun etat ne correspond.<br>
+            ERREUR 8 - Aucune modalité ne correspond.<br>
+            ERREUR 9 - Erreur à la création de la collecte: {err}<br>
+            ERREUR 10 - La valeur de l'entrée {key} n'est pas comprise dans: 'True', 'False'.<br>
+            ERREUR 11 - Les entrées suivantes sont obligatoires: "{mandatory_fields}<br>
+            ERREUR 12 - Aucun document n'a été envoyé.<br>
+            ERREUR 13 - Erreur à la création du document: {err}<br>
+            ERREUR 14 - Erreur au téléchargement de document de la collecte {oge_id}<br>
+            ERREUR 15 - Données de création des signataires invalides.
+                Format attendu: "signatories":[{"first_name": "OBLIGATOIRE", "last_name": 'OBLIGATOIRE', "email": "OBLIGATOIRE", "mobile": "OBLIGATOIRE", "cadastral_references": "optionnel"}] ")<br>
+            ERREUR 16 - Erreur à la création des signataires: {err}
+
+
+  /signatures/collections/ge:
+    get:
+      tags:
+        - signature
+      description:  |
+        Ce service retourne la liste des collectes dont l'oge_signatory correpond à l'utilisateur connecté
+      summary: F2 - Liste des collectes d'un utilisateur
+      parameters:
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Liste de collectes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collecte'
+
+  /signatures/collections/{oge_id}:
+    get:
+      tags:
+        - signature
+      description:  |
+        Ce service retourne le détail d'une collecte
+      summary: F3 - Détail d'une collecte
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Collecte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collecte'
+
+  /signatures/collections/{oge_id}/documents:
+    get:
+      tags:
+        - signature
+      description:  |
+        Ce service permet de télécharger le document à signer d'une collecte
+      summary: F4 - Téléchargement du document d'une collecte
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Document PDF de la collecte
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /signatures/collections/{oge_id}/delete:
+    post:
+      tags:
+        - signature
+      description:  |
+        Ce service permet de supprimer une collecte
+      summary: F5 - Suppression d'une collecte
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Collecte supprimée
+
+  /signatures/collections/{oge_id}/remind_signatory:
+    post:
+      tags:
+        - signature
+      description:  |
+        Ce service permet d'envoyer un mail de rappel et un SMS à un des signataires, sous réserve qu'il n'ait pas encore signé.
+      summary: F6 - Relance d'un signataire
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: |
+            Dans le body du POST, renseigner un objet __data__ avec une clé __index__ qui est le numéro d'ordre du signataire dans la collecte.  
+            Cette valeur peut être obtenue via le service *F3 - Détail d'une collecte*.  
+            __Attention__ : l'index du premier signataire est 1 (et non pas 0)
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    index:
+                      type: integer
+                      description: index du signataire
+      responses:
+        '200':
+          description: Signataire relancé
+        '404':
+          description: Signataire non trouvé ou ayant déjà signé
+
+  /signatures/collections/{oge_id}/delete_signatory:
+    post:
+      tags:
+        - signature
+      description:  |
+        Ce service permet de retirer un des signataires de la liste, sous réserve qu'il n'ait pas encore signé.
+      summary: F7 - Suppression d'un signataire
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: |
+            Dans le body du POST, renseigner un objet __data__ avec une clé __index__ qui est le numéro d'ordre du signataire dans la collecte.  
+            Cette valeur peut être obtenue via le service *F3 - Détail d'une collecte*.  
+            __Attention__ : l'index du premier signataire est 1 (et non pas 0)
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    index:
+                      type: integer
+                      description: index du signataire
+      responses:
+        '200':
+          description: Signataire supprimé
+        '404':
+          description: Signataire non trouvé ou ayant déjà signé
+
+  /signatures/collections/{oge_id}/update_signatory:
+    post:
+      tags:
+        - signature
+      description:  |
+        Ce service permet de mettre à jour les informations d'un des signataires (email et mobile), sous réserve qu'il n'ait pas encore signé.
+      summary: F8 - Mise à jour d'un signataire
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: |
+            Dans le body du POST, renseigner un objet __data__ avec :
+            * une clé __index__ : le numéro d'ordre du signataire dans la collecte. Cette valeur peut être obtenue via le service *F3 - Détail d'une collecte* (l'index des signataires démarre à 1)
+            * une clé __mobile__ : le numéro de téléphone mobile du signataire à mettre à jour
+            * uen clé __email__ : l'adresse email du signataire à metttre à jour
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    index:
+                      type: integer
+                      description: index du signataire
+                    email:
+                      type: string
+                      description: email du signataire
+                    mobile:
+                      type: string
+                      description: mobile du signataire
+      responses:
+        '200':
+          description: Signataire supprimé
+        '404':
+          description: Signataire non trouvé ou ayant déjà signé
+
+  /signatures_v2/collections/new:
+    post:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service permet de créer une nouvelle collecte de signature.
+        Pour plus d'information sur le fonctionnement général de l'application Signature, vous pouvez consulter le <a href="https://www.geofoncier.fr/ressources/doc_pdf/guide_application_signatures_electroniques.pdf" target='blank'>guide utilisateur</a>.
+
+        Vous devez être authentifié en tant que géomètre-expert pour utiliser les services de la composante SIGNATURE. L'authentification doit être réalisé via un token (bearerAuth). L'obtention d'un token se fait via un service dédié documenté ici : <a href="https://api2.preprod.geofoncier.fr/token.html" target="blank">obtenir un token</a>
+
+        Pour créer une nouvelle collecte, vous devez fournir les informations suivantes :
+         - __le fichier PDF à signer__, à uploader via le paramètre __file__
+         - __la référence du dossier__ associé à ce document (enr_ref_dossier) : il s'agit du libellé du dossier tel qu'il est défini par le géomètre-expert
+         - __le mode de facturation__ associé à la collecte (billing_mode) : il s'agit du mode de facturation (Forfaitaire ou Unitaire) tel qu'il est défini par le géomètre-expert (voir le <a href="https://www.geofoncier.fr/ressources/doc_pdf/tarifs_signature_electronique.pdf" target="blank">détails des tarifs</a>)
+         - __si c'est un PV de bornage__ (is_pv_bornage) : true ou false, déclaratif par le GE. Dans le cas d'un choix de mode de facturation unitaire de la collecte, la signature d'un PV de bornage est facturé différement d'un autre document (voir le <a href="https://www.geofoncier.fr/ressources/doc_pdf/tarifs_signature_electronique.pdf" target="blank">détails des tarifs</a>)
+         - __si c'est un DA__ (is_da) : true ou false, déclaratif par le GE.
+         - __le type de document à signer__ (doc_code) : code du type de document envoyé à la signature. Cette information sert à bien qualifier le document signé lorsqu'il est automatiquement ajouté au dossier en fin de collecte. Valeur par défaut : '9DIz' (Autre document). La liste des codes documents peut être obtenues via le service /api/dossiersoge/codesdocuments (API Dossiers), seuls les documents avec doc_signable_electroniquement = true devraient être utilisés. Si la collecte comprend plusieurs documents (possible depuis le portail si is_da = true), c'est le code du premier document de la collecte qui est retourné.
+         - __l'identifiant interne du dossier__ (enr_api_dossier) : il s'agit de l'identifiant sur 32 caractères interne à Géofoncier. Il peut être obtenu via les services l'API Dossiers, nottament le B5 qui pmermet de rechercher un dossier à partir de sa référence. Cette information est facultative mais importante car c'est elle qui permettra une fois le document signé, de le rattacher automatiquement au bon dossier dans Géofoncier.
+         - la __fréquence de rappel__ (reminders) : en jours, permet d'indiquer à quelle fréquence les signataires seront relancés
+         - la __liste des signataires__ (signatories) : pour chaque signataires, il faut indiquer son prénom, nom, adresse email et téléphone. Ces informations sont obligatoires. On peut également ajouter une référence parcellaire si on en dispose.
+         - le __texte du mail initial__ envoyé aux signataires (convocation_email_content) : l'application propose par défaut un modèle de mail, mais celui-ci peut être remplacé par un autre texte en conservant les variables telles qu'indiquées dans le texte par défaut (voir exemple ci-dessous).
+         - l' __objet du mail initial__ envoyé aux signataires (convocation_email_object)
+         - le __texte du mail de rappel__ envoyé aux signataires qui n'ont pas encore signé (reminder_email_content) : idem contenu texte initial précédent.
+         - l' __objet du mail de rappel__ envoyé aux signataires qui n'ont pas encore signé (reminder_email_object).
+         - 3 autres valeurs facultatives de type booléen permettant de personnaliser la configuration par défaut de la collecte :
+            * __automatic_notification__ : si à true (valeur par défaut), le document signé sera automatiquement envoyé par email aux signataires à la fin de la collecte
+            * __send_doc_to_ge_upon_finished__ : si à true (valeur par défaut), le géomètre-expert recevra le document signé à la fin de la collecte
+            * __ge_last_sign__ : par défaut à false, envoie un mail de signature au GE seulement lorsque tous les autres signataires ont signés.
+
+        Ces informations doivent être envoyées au format JSON dans le data du POST.
+        Un exemple est fourni dans le test du service (bouton __[ Try it out ]__)
+
+        Ce service fonctionne en POST (multipart/form-data) : les données sont envoyées dans le 'data' et le fichier dans le 'file'
+
+
+        ---
+
+        __Changements V2 :__
+          - Suppression de la durée totale de la collecte. Elle est de 90 jours.
+          - Ajout de l'objet du mail l'initial (*convocation_email_object*).
+          - Ajout de l'objet du mail de relance (*reminder_email_object*).
+          - Restriction de l'objet d'un mail à 100 caractères.
+          - Restriction du texte d'un mail à 1000 caractères.
+          - Suppression du paramètres *__display_date_on_seal__*
+          - Suppression du paramètres *__use_hand_signature__*
+          - Suppression du paramètres *__get_sign_notifications__*
+          - Suppression du paramètres *__sign_order__*
+          - Ajout du paramètres *__ge_last_sign__*
+
+      summary: F1 - Création d'une collecte
+      parameters:
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: Informations pour la création de la collecte
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                # 'file' will be the field name in this multipart request
+                file:
+                  type: string
+                  format: binary
+                data:
+                  type: object
+                  example: |
+                          {
+                              "enr_ref_dossier":"A20039",
+                              "enr_api_dossier":"541823ed714deb7febe0a9a4d9fc074c",
+                              "reminders":25,
+                              "signatories":[{
+                                "first_name": "PrénomSignataire1",
+                                "last_name": "NomSignataire1",
+                                "email": "email_signataire1@yopmail.fr",
+                                "mobile": "XXXXXXXXXX",
+                                "cadastral_references": "D52"
+                              },{
+                                "first_name": "PrénomSignataire2",
+                                "last_name": "NomSignataire2",
+                                "email": "email_signataire2@yopmail.fr",
+                                "mobile": "XXXXXXXXXX",
+                                "cadastral_references": "D52"
+                              }],
+                              "convocation_email_content":"Suite à l'intervention du géomètres-expert concernant votre parcelle {{ cad }}.\n Merci de réaliser cette opération rapidement. ",
+                              "convocation_email_object":"Demande signature ",
+                              "reminder_email_content":"Mail de rappel.",
+                              "reminder_email_object":"Signature de rappel.",
+                              "automatic_notification":"True",
+                              "send_doc_to_ge_upon_finished":"True",
+                              "ge_last_sign":"True"
+                          }
+                  properties:
+                    collecte:
+                      $ref: '#/components/schemas/CollecteCreation'
+      responses:
+        '201':
+          description: Collecte créée
+        '403':
+          description: |
+            ERREUR 1 - Vous n'êtes pas autorisé à acceder à ce service.<br>
+            ERREUR 2 - Le jeton applicatif est manquant.<br>
+            ERREUR 3 - Le jeton applicatif est invalide.<br>
+            ERREUR 4 - Votre application n'a plus le droit de se connecter à l'application. Merci de contacter le support de {app_name}
+        '400':
+          description: |
+            ERREUR 5 - Données de création de collecte invalides. Format attendu: {'key': 'value'...}"<br>
+            ERREUR 6 - Aucun GE signataire ne correpond.<br>
+            ERREUR 7 - Aucun etat ne correspond.<br>
+            ERREUR 8 - Aucune modalité ne correspond.<br>
+            ERREUR 9 - Erreur à la création de la collecte: {err}<br>
+            ERREUR 10 - La valeur de l'entrée {key} n'est pas comprise dans: 'True', 'False'.<br>
+            ERREUR 11 - Les entrées suivantes sont obligatoires: "{mandatory_fields}<br>
+            ERREUR 12 - Aucun document n'a été envoyé.<br>
+            ERREUR 13 - Erreur à la création du document: {err}<br>
+            ERREUR 14 - Erreur au téléchargement de document de la collecte {oge_id}<br>
+            ERREUR 15 - Données de création des signataires invalides.
+                Format attendu: "signatories":[{"first_name": "OBLIGATOIRE", "last_name": 'OBLIGATOIRE', "email": "OBLIGATOIRE", "mobile": "OBLIGATOIRE", "cadastral_references": "optionnel"}] ")<br>
+            ERREUR 16 - Erreur à la création des signataires: {err}
+
+
+  /signatures_v2/collections/ge:
+    get:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service retourne la liste des collectes dont l'oge_signatory correpond à l'utilisateur connecté
+      summary: F2 - Liste des collectes d'un utilisateur
+      parameters:
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Liste de collectes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collecte'
+
+  /signatures_v2/collections/{oge_id}:
+    get:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service retourne le détail d'une collecte
+      summary: F3 - Détail d'une collecte
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Collecte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collecte'
+
+  /signatures_v2/collections/{oge_id}/documents:
+    get:
+      tags:
+        - signature_v2
+      description: | 
+        Ce service permet de télécharger le document à signer d'une collecte
+
+        ---
+
+        __Changements V2 :__
+          - Ajout de la mise à jour de la collecte par requête auprès d'universign afin de vérifier si le document est bien téléchargeable.
+      summary: F4 - Téléchargement du document d'une collecte
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Document PDF de la collecte
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /signatures_v2/collections/{oge_id}/delete:
+    post:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service permet de supprimer une collecte
+      summary: F5 - Suppression d'une collecte
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      responses:
+        '200':
+          description: Collecte supprimée
+
+  /signatures_v2/collections/{oge_id}/remind_signatory:
+    post:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service permet d'envoyer un mail de rappel et un SMS à un des signataires, sous réserve qu'il n'ait pas encore signé.
+      summary: F6 - Relance d'un signataire
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: |
+            Dans le body du POST, renseigner un objet __data__ avec une clé __index__ qui est le numéro d'ordre du signataire dans la collecte.  
+            Cette valeur peut être obtenue via le service *F3 - Détail d'une collecte*.  
+            __Attention__ : l'index du premier signataire est 1 (et non pas 0)
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    index:
+                      type: integer
+                      description: index du signataire
+      responses:
+        '200':
+          description: Signataire relancé
+        '404':
+          description: Signataire non trouvé ou ayant déjà signé
+
+  /signatures_v2/collections/{oge_id}/delete_signatory:
+    post:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service permet de retirer un des signataires de la liste, sous réserve qu'il n'ait pas encore signé.
+      summary: F7 - Suppression d'un signataire
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: |
+            Dans le body du POST, renseigner un objet __data__ avec une clé __index__ qui est le numéro d'ordre du signataire dans la collecte.  
+            Cette valeur peut être obtenue via le service *F3 - Détail d'une collecte*.  
+            __Attention__ : l'index du premier signataire est 1 (et non pas 0)
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    index:
+                      type: integer
+                      description: index du signataire
+      responses:
+        '200':
+          description: Signataire supprimé
+        '404':
+          description: Signataire non trouvé ou ayant déjà signé
+
+  /signatures_v2/collections/{oge_id}/update_signatory:
+    post:
+      tags:
+        - signature_v2
+      description:  |
+        Ce service permet de mettre à jour les informations d'un des signataires (email et mobile), sous réserve qu'il n'ait pas encore signé.
+      summary: F8 - Mise à jour d'un signataire
+      parameters:
+        - name: oge_id
+          in: path
+          required: true
+          description: Identifiant interne de la collecte
+          schema:
+            default: "fc5b96ad-7eff-443f-a48c-2efc710d5fd5"
+            items:
+              type: string
+        - name: token_api
+          in: query
+          required: true
+          description: Jeton applicatif valide
+          schema:
+            default: "166c5ffb-dc40-4bab-aaff-66a34ea70ca2"
+            items:
+              type: string
+      requestBody:
+        description: |
+            Dans le body du POST, renseigner un objet __data__ avec :
+            * une clé __index__ : le numéro d'ordre du signataire dans la collecte. Cette valeur peut être obtenue via le service *F3 - Détail d'une collecte* (l'index des signataires démarre à 1)
+            * une clé __mobile__ : le numéro de téléphone mobile du signataire à mettre à jour
+            * uen clé __email__ : l'adresse email du signataire à metttre à jour
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    index:
+                      type: integer
+                      description: index du signataire
+                    email:
+                      type: string
+                      description: email du signataire
+                    mobile:
+                      type: string
+                      description: mobile du signataire
+      responses:
+        '200':
+          description: Signataire supprimé
+        '404':
+          description: Signataire non trouvé ou ayant déjà signé
+          
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    # Error:
+    #   required:
+    #     - code
+    #     - message
+    #   properties:
+    #     code:
+    #       type: integer
+    #       format: int32
+    #     message:
+    #       type: string
+
+    DossierCreation:
+      properties:
+        enr_cab_createur:
+          type: string
+          # example: 12312452
+          description:  Identifiant de structure créatrice (11 caractères)
+        enr_ref_dossier:
+          type: string
+          description: Référence du dossier (15 caractères maximum)
+        enr_cab_detenteur:
+          type: string
+          description: Identifiant de structure détentrice (11 caractères)
+        enr_ge_createur:
+          type: string
+          description: Identifiant de géomètre-expert créateur (5 chiffres)
+        enr_code_insee:
+          type: string
+          description: Code INSEE de la commune du dossier (5 caractères)
+        enr_date_dossier:
+          type: string
+          description: Date du dossiers
+          example: AAAA-MM-JJ ou JJ-MM-AAAA
+        op_code:
+          type: string
+          description:  Liste Codes des opérations
+          example: [ "Ee", "Aa"]
+        enr_visible:
+          type: boolean
+          description: Visibilité du dossier aux autres géomètres-experts
+          example: false
+        enr_memo:
+          type: string
+          description: Mémo (255 caractères maximum)
+        dmpc_ref:
+          type: string
+          description:  Référence DMPC du dossier (liste d'objet)
+          example: [
+            {
+              "dmpc_prefixe": "XXX",
+              "dmpc_ref": "YYYY"
+            },{
+              "dmpc_prefixe": "XXXX",
+              "dmpc_ref": "YYYY"
+            }
+          ]
+        cadastre:
+          type: string
+          description:  Référence(s) cadastrale(s) du dossier (liste d'objet)
+          example: [
+            {
+              "cad_prefixe": "000",
+              "cad_section": "AY",
+              "cad_parcelle": 10
+            },{
+              "cad_prefixe": "000",
+              "cad_section": "AY",
+              "cad_parcelle": 10
+            }
+          ]
+        enr_geom_wkt:
+          type: string
+          description:  Multipolygone d'emprise du dossier en WKT, avec les coordonnées dans la projection locale
+          example: "MULTIPOLYGON(((XXXXXX XXXXXX,XXXXXX XXXXXX,XXXXXX XXXXXX,XXXXXX XXXXXX,XXXXXX XXXXXX)))"
+        cli_identifiant  :
+          type: string
+          description:  Liste des identifiants clients Géofoncier
+          example: [ "cli1", "cli2"]
+        localisant:
+          type: string
+          description: |
+              Coordonnées "Est,Nord" des localisants (liste objet)  
+              La projection des coordonnées est celle de la principale projection locale sur le territoire considéré :
+              * Métropole : RGF93 - Lambert 93
+              * Antilles :  RRAF91 - UTM20N
+              * Guyane : RGFG95 - UTM22N
+              * Réunion : RGR92 - UTM40S
+              * Mayotte : RGM04 - UTM38S
+          example: [
+            {
+              "loc_coord_est": "XXXXXX",
+              "loc_coord_nord": "XXXXX"
+            },
+            {
+              "loc_coord_est": "XXXXXX",
+              "loc_coord_nord": "XXXXX"
+            }]
+
+        enr_extra:
+          type: string
+          description: Informations complémentaire au format json
+          example: {"enr_operateur_c":"Olivier","enr_signataire_c":"M. Jean Martin"}
+        enr_statut:
+          type: string
+          description: Statut du dossier par défaut indéterminé (liste des valeurs possibledécrite dans le service B4c)
+
+      required:
+        - enr_cab_createur
+        - enr_ref_dossier
+        - enr_cab_detenteur
+        - enr_ge_createur
+        - enr_code_insee
+        - enr_date_dossier
+        - op_code
+    DossierMiseAJour:
+      properties:
+        enr_ref_dossier:
+          type: string
+          description: Référence du dossier (15 caractères maximum)
+        enr_ge_createur:
+          type: string
+          description: Identifiant de géomètre-expert créateur (5 chiffres)
+        enr_date_dossier:
+          type: string
+          description: Date du dossier
+          example: AAAA-MM-JJ ou JJ-MM-AAAA
+        enr_visible:
+          type: boolean
+          description: Visibilité du dossier aux autres géomètres-experts
+          example: false
+        enr_memo:
+          type: string
+          description: Mémo (255 caractères maximum)
+        op_code:
+          type: string
+          description:  Liste Codes des opérations
+          example: [ "Ee", "Aa"]
+        dmpc_ref:
+          type: string
+          description:  Référence DMPC du dossier (liste d'objet)
+          example: [
+            {
+              "dmpc_prefixe": "XXX",
+              "dmpc_ref": "YYYY"
+            },{
+              "dmpc_prefixe": "XXXX",
+              "dmpc_ref": "YYYY"
+            }
+          ]
+        cadastre:
+          type: string
+          description:  Référence(s) cadastrale(s) du dossier (liste d'objet)
+          example: [
+            {
+              "cad_prefixe": "000",
+              "cad_section": "AY",
+              "cad_parcelle": 10
+            },{
+              "cad_prefixe": "000",
+              "cad_section": "AY",
+              "cad_parcelle": 10
+            }
+          ]
+        enr_geom_wkt:
+          type: string
+          description:  Multipolygone d'emprise du dossier en WKT, avec les coordonnées dans la projection locale
+          example: "MULTIPOLYGON(((XXXXXX XXXXXX,XXXXXX XXXXXX,XXXXXX XXXXXX,XXXXXX XXXXXX,XXXXXX XXXXXX)))"
+        cli_identifiant  :
+          type: string
+          description:  Liste des identifiants clients Géofoncier
+          example: [ "cli1", "cli2"]
+        localisant:
+          type: string
+          description: |
+              Coordonnées "Est,Nord" des localisants (liste objet)  
+              La projection des coordonnées est celle de la principale projection locale sur le territoire considéré :
+              * Métropole : RGF93 - Lambert 93
+              * Antilles :  RRAF91 - UTM20N
+              * Guyane : RGFG95 - UTM22N
+              * Réunion : RGR92 - UTM40S
+              * Mayotte : RGM04 - UTM38S
+          example: [
+            {
+              "loc_coord_est": "XXXXXX",
+              "loc_coord_nord": "XXXXX"
+            },
+            {
+              "loc_coord_est": "XXXXXX",
+              "loc_coord_nord": "XXXXX"
+            }]
+        enr_extra:
+          type: string
+          description: Informations complémentaire au format json
+          example: {"enr_operateur_c":"Olivier","enr_signataire_c":"M. Jean Martin",}
+        enr_statut:
+          type: string
+          description: Statut du dossier par défaut indéterminé (liste des valeurs possible  décrite dans le service B4c)
+    ReferentielGE:
+      properties:
+        email:
+          type: string
+          description: Adresse email ordinale du géomètre-expert
+        civilite:
+          type: string
+          description: Civilité du géomètre-expert
+        nom_ge:
+          type: string
+          description: Nom du géomètre-expert
+        prenom_ge:
+          type: string
+          description: Prénom du géomètre-expert
+        actif:
+          type: boolean
+          description: Statut actif ou non du géomètre-expert
+        no_last_cabinet:
+          type: string
+          description: Numéro du dernier cabinet de rattachement du géomètre-expert
+        nom_last_cabinet:
+          type: string
+          description: Nom du dernier cabinet de rattachement du géomètre-expert
+    StructureGE:
+      properties:
+        nom_structure:
+          type: string
+          description: Nom de la structure
+        num_structure:
+          type: string
+          description: Numéro ordinal de la structure
+        date_creation_cabinet:
+          type: string
+          description: Date de création de la structure
+        contact_structure:
+          type: string
+          description: URL de la fiche contact de la structure dans l'annuaire de l'OGE
+        forme_juridique:
+          type: string
+          description: Forme juridique de la structure
+    BureauGE:
+      properties:
+        nom_structure:
+          type: string
+          description: Nom de la structure
+        num_structure:
+          type: string
+          description: Numéro ordinal de la structure
+        forme_juridique:
+          type: string
+          description: Forme juridique de la structure
+        contact_structure:
+          type: string
+          description: URL de la fiche contact de la structure dans l'annuaire de l'OGE
+        email:
+          type: string
+          description: Adresse email de contact du bureau
+        telephone:
+          type: string
+          description: Téléphone de contact du bureau
+        addr_1:
+          type: string
+          description: Complément d'adresse avant la voie
+        voie:
+          type: string
+          description: Adresse (numéro et voie)
+        addr_3:
+          type: string
+          description: Complément d'adresse après la voie
+        code_postal:
+          type: string
+          description: Code postal
+        ville:
+          type: string
+          description: Ville
+        lon:
+          type: string
+          description: Longitude du bureau (degrés décimaux)
+        lat:
+          type: string
+          description: Latitude du bureau (degrés décimaux)
+        type_bureau:
+          type: string
+          description: Type de bureau
+        ge_reponsable:
+          type: string
+          description: Géomètre-expert reponsable le cas échéant
+    Changeset:
+      properties:
+        id:
+          type: integer
+          description: Identifiant unique du changeset
+        ge:
+          type: string
+          description: Identifiant du géomètre-expert ayant ouvert le changeset
+        ouvert_le:
+          type: string
+          description : Date d'ouverture du changeset
+        ferme_le:
+          type: string
+          description : Date de fermeture du changeset
+        ouvert:
+          type: boolean
+          description : Etat ouvert ou fermé du changeset
+        commentaire:
+          type: string
+          description : Commentaire sur le changeset
+        enr_api_dossier:
+          type: string
+          description : Identifiant unique du dossier Géofoncier pour lequel le changeset à été ouvert.
+        link:
+          type: string
+          description : URI du changeset
+    sommet:
+      properties:
+        id_noeud:
+          type: string
+          description: identifiant interne du sommet
+          xml:
+            attribute: true
+        action:
+          type: string
+          description: create, update ou delete selon le traitement à appliquer sur le sommet
+          xml:
+            attribute: true
+        som_nature:
+          type: string
+          description: Nature de l’élément matérialisant du sommet RFU (30 caractères maximum)
+        som_precision_rattachement:
+          type: integer
+          description: Classe de précision de rattachement de l’objet RFU (1 ou 2)
+        som_coord_est:
+          type: string
+          description: Coordonnée Est du sommet RFU tel que défini par le géomètre-expert
+        som_coord_nord:
+          type: string
+          description: Coordonnée Nord du sommet RFU tel que défini par le géomètre-expert
+        som_representation_plane:
+          type: string
+          description: Représentation plane dans laquelle sont exprimées les cordonnées planes du sommet RFU
+    CollecteCreation:
+      properties:
+        enr_ref_dossier:
+          type: string
+          description: référence du dossier, chaîne de 40 caracteres maximum
+        enr_api_dossier:
+          type: string
+          description: identifiant du dossier, chaine facultative de 75 caracteres maximum
+        is_pv_bornage:
+          type: boolean
+          description: Déclaré comme Procès-Verbal de Bornage
+        billing_mode:
+          type: string
+          description: Mode de facturation de la collecte (f:forfait ou u:unitaire)
+        is_da:
+          type: boolean
+          description: Déclaré comme Document d'Arpentage
+        doc_code:
+          type: string
+          description: Code du type de document envoyé à la signature
+        total_duration:
+          type: integer
+          description: durée de la collecte, entier facultatif (defaut=15)
+        reminders:
+          type: integer
+          description: fréquence de rappel, entier facultatif (defaut=7)
+        state:
+          type: string
+          description: |
+            caractere parmi: 'B','P', '0', '1', '2', '3', '4', '5', 'A', 'Z', 'R', (defaut='B')
+              * B : Brouillon
+              * P : Prête à l\'envoi
+              * 0 : En cours
+              * 1 : Expirée
+              * 2 : Terminée
+              * 3 : Annulée par un signataire
+              * 4 : Echec technique
+              * 5 : Document d\'identité en attente de validation
+              * A : Archivée
+              * Z : Annulée en fin de collecte par le GE
+              * R : Reprogrammée plus tard
+        sign_order:
+          type: string
+          description:  |
+            caractere parmi: 'S', 'O', (defaut='O')
+              * O : ordonné
+              * S : simultané
+        convocation_email_content:
+          type: string
+          description: Texte de l’email de demande de signature, facultatif
+        reminder_email_content:
+          type: string
+          description: Texte de l’email de rappel, facultatif
+        automatic_notifiation:
+          type: boolean
+          description: Notifications automatiques au GE (defaut = 'True')
+        display_date_on_seal:
+          type: boolean
+          description: Afficher la date sur la signature (default='True')
+        send_doc_to_ge_upon_finished:
+          type: boolean
+          description: Envoyer les doc au GE à la fin de la collecte (default='True')
+        get_sign_notifications:
+          type: boolean
+          description: Recevoir des notifications pour chaque signature (default='True')
+        use_hand_signature:
+          type: boolean
+          description: Utiliser la signature manuscrite (default='True')
+    Collecte:
+      properties:
+        oge_id:
+          type: string
+          description: Identifiant interne de la collecte
+        enr_ref_dossier:
+          type: string
+          description: Référence du dossier associé à la collecte
+        is_pv_bornage:
+          type: boolean
+          description: Déclaré comme Procès-Verbal de Bornage
+        billing_mode:
+          type: string
+          description: Mode de facturation de la collecte (f:forfait ou u:unitaire)
+        is_da:
+          type: boolean
+          description: Déclaré comme Document d'Arpentage
+        doc_code:
+          type: string
+          description: Code du type de document envoyé à la signature
+        enr_api_dossier:
+          type: integer
+          description: Identifiant interne du dossier
+        total_duration:
+          type: integer
+          description: Durée total de la collecte
+        start_date:
+          type: string
+          description: Date de début de la collecte
+        end_date:
+          type: string
+          description: Date de fin de la collecte
+        reminders:
+          type: integer
+          description: Fréquence des relances
+        convocation_email_content:
+          type: string
+          description: Texte de l’email de demande de signature
+        reminder_email_content:
+          type: string
+          description: Texte de l’email de rappel
+        state:
+          type: string
+          description: |
+            Etat de la collecte (interne, non modifiable via l'API) :
+              * B : Brouillon
+              * P : Prête à l\'envoi
+              * 0 : En cours
+              * 1 : Expirée
+              * 2 : Terminée
+              * 3 : Annulée par un signataire
+              * 4 : Echec technique
+              * 5 : Document d\'identité en attente de validation
+              * A : Archivée
+              * Z : Annulée en fin de collecte par le GE
+              * R : Reprogrammée plus tard
+
+        sign_order:
+          type: string
+          description: |
+            Mode de signature :
+              * O : ordonné
+              * S : simultané
+        automatic_notifiation:
+          type: boolean
+          description: Notifications automatiques au GE
+        display_date_on_seal:
+          type: boolean
+          description: Afficher la date sur la signature
+        send_doc_to_ge_upon_finished:
+          type: boolean
+          description: Envoyer les doc au GE à la fin de la collecte
+        get_sign_notifications:
+          type: boolean
+          description: Recevoir des notifications pour chaque signature
+        use_hand_signature:
+          type: boolean
+          description: Utiliser la signature manuscrite
+        signatories:
+          type : array
+          items:
+            type: object
+            properties:
+              name:
+                type : string
+                description : Nom complet du signataire
+              first_name:
+                type : string
+                description : Prénom du signataire
+              last_name:
+                type : string
+                description : Nom du signataire
+              email:
+                type: string
+                description : Adresse email du signataire
+              mobile:
+                type: string
+                description : Téléphone du signataire
+              url:
+                type: string
+                description : URL de signature
+              email_sent:
+                type: boolean
+                description : Email envoyé
+              has_signed:
+                type: boolean
+                description : A signé
+              date_signed:
+                type: string
+                description : Date de signature
+              index:
+                type: integer
+                description: Numéro d'ordre du signataire
+              reject_msg:
+                type: string
+                description: Raison du rejet
+              cadastral_references:
+                type: string
+                description: Références cadastrales du signataire
+    Abonnement:
+      properties:
+        user_id:
+          type: string
+        is_suspended:
+          type: string
+        plan:
+          type: string
+        end_date:
+          type: string
+        customer_key:
+          type: string
+    RelationsStatus:
+       properties:
+        status:
+          type: number
+        data:
+          type: object
+          properties:
+            arr_ges:
+              type: array
+              items:
+                type: string
+            relations:
+              type: object
+              properties:
+                key:
+                  type: object
+                  properties:
+                    relation:
+                      type: object
+                      properties:
+                        uuid:
+                          type: string
+                        date:
+                          type: string
+                        ge_demande:
+                          type: string
+                        cli_nom:
+                          type: string
+                        cli_cle:
+                          type: string
+                        cli_mail:
+                          type: string
+                        cli_organisation:
+                          type: string
+                        statut:
+                          type: string
+                        nb_dossiers:
+                          type: string
+                        nb_documents:
+                          type: string
+                        enr_ge_createur_name:
+                          type: string
+                        message_custom:
+                          type: string
+                        enr_cab_detenteur_numero:
+                          type: string
+                        enr_cab_detenteur_nom:
+                          type: string
+    DashboardPro:
+      properties:
+        status:
+          type: number
+        responseCode:
+          type: number
+        data:
+          type: object
+          properties:
+            key_cab:
+              type: object
+              properties:
+                uuid:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      doc_joints__doc_api:
+                        type: string
+                      doc_joints__doc_code:
+                        type: string
+                      doc_joints__doc_extension:
+                        type: string
+                      doc_joints__doc_description:
+                        type: string
+                      doc_joints__doc_visible:
+                        type: boolean
+                      doc_joints__doc_date_geofoncier:
+                        type: string
+                      doc_joints__doc_code__doc_document:
+                        type: string
+                      doc_joints__doc_code__doc_obligatoire:
+                        type: boolean
+                      doc_joints__doc_extension__doc_format:
+                        type: string
+                      doc_joints__doc_extension__doc_format_meta:
+                        type: string
+                      doc_size:
+                        type: number
+                      doc_joints__fichier:
+                        type: string
+                      doc_joints__thumb:
+                        type: string
+                      enr_cab_detenteur_numero:
+                        type: string
+                      enr_cab_detenteur_nom:
+                        type: string
+                      enr_cab_createur:
+                        type: object
+                        properties:
+                          numero:
+                            type: string
+                          nom:
+                            type: string
+                      ge_createur_numero:
+                        type: string
+                      ge_createur_nom:
+                        type: string
+                      enr_api:
+                        type: string
+                      enr_ref_dossier:
+                        type: string
+                      enr_date_dossier:
+                        type: string
+                      enr_code_insee__in_nccenr:
+                        type: string
+                      cadastre:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            cadastre__cad_prefixe:
+                              type: string
+                            cadastre__cad_section:
+                              type: string
+                            cadastre__cad_parcelle:
+                              type: string
+                      doc_log_telecharment:
+                        type: string
+    MesDossiersGeojson:
+      properties:
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              properties:
+                type: object
+                properties:
+                  enr_api:
+                    type: string
+              geometry:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  coordinates:
+                    type: array
+                    items:
+                      type: number
+        type:
+          type: string
+    MesDossiersMini:
+      properties:
+        id:
+          type: string
+        enr_cab_detenteur:
+          type: string
+          description: Identifiant de structure détentrice (11 caractères) 
+        enr_cab_createur:
+          type: string
+          # example: 12312452
+          description:  Identifiant de structure créatrice (11 caractères)
+        enr_ref_dossier:
+          type: string
+          description: Référence du dossier (15 caractères maximum)
+        enr_ge_createur:
+          type: string
+          description: Identifiant de géomètre-expert créateur (5 chiffres)
+        enr_code_insee:
+          type: string
+          description: Code INSEE de la commune du dossier (5 caractères)
+        operation:
+          type: array
+          items:
+            type: string
+        dmpc_ref:
+          type: string
+          description:  Référence DMPC du dossier (liste d'objet)
+          example: [
+            {
+                  "dmpc_prefixe": "XXX",
+                  "dmpc_ref": "YYYY"
+             },{
+               "dmpc_prefixe": "XXXX",
+               "dmpc_ref": "YYYY"
+             }
+          ]
+        localisant:
+          type: object
+          properties:
+            type:
+              type: string
+            features:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  geometry:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      coordinates:
+                        type: array
+                        items:
+                          type: number
+        emprise:
+          type: object
+          properties:
+            type:
+              type: string
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+        etendue:
+          type: object
+          properties:
+            type:
+              type: string
+            coordinates:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+        lib_commune:
+          type: string
+        dominante:
+          type: string
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              zone:
+                type: string
+              doc_cab_createur:
+                type: string
+              doc_ref_dossier:
+                type: string
+              doc_description:
+                type: string
+              doc_libelle:
+                type: string
+              doc_code:
+                type: string
+              doc_visible:
+                type: boolean
+              doc_extension:
+                type: string
+              doc_signe_electroniquement:
+                type: boolean
+        nom_gecreateur:
+          type: string   
+        nom_cabcreateur:
+          type: string 
+        nom_cabdetenteur:
+          type: string 
+        contact_cabdetenteur:
+          type: string 
+        statut:
+          type: string
+
+
+security:
+  - bearerAuth: []

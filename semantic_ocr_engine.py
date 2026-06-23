@@ -91,6 +91,17 @@ FIELD_VALIDATORS: Dict[str, Any] = {
         "corrections": [],
         "examples": ["01/01/2010", "15.03.1985", "2024"],
     },
+    "dossier": {
+        # Format N° d'ordre DA : ex Tha23a16ca, Val19c11da, 07A00123, 2024-DA-001
+        # Motifs observés : [lettres][chiffres][lettre(s)][chiffres][lettres]
+        # ou format numérique pur : 07-2023-0045
+        "pattern": r"[A-Za-z]{2,4}\d{2}[A-Za-z]{1,2}\d{2,4}[A-Za-z]{0,4}|\d{2,4}[-\/]?[A-Z]{0,3}[-\/]?\d{3,6}",
+        "corrections": [
+            (r"O", "0"),   # O majuscule → zéro dans les chiffres
+            (r"l", "1"),   # l minuscule → un dans les chiffres
+        ],
+        "examples": ["Tha23a16ca", "Val19c11da", "07A00123", "2024-001"],
+    },
 }
 
 
@@ -178,8 +189,12 @@ class SemanticFieldCorrector:
             return self._correct_section(txt)
         elif field_type == "date":
             return self._correct_date(txt)
+        elif field_type in ("dossier", "n_ordre"):
+            return self._correct_dossier(txt)
+        elif field_type == "geometre":
+            return self._correct_geometre(txt)
         else:
-            # Champs libres (géomètre, dossier, propriétaire…)
+            # Champs libres (propriétaire…)
             return {"valeur": txt, "confiance": 0.7, "methode": "libre", "valide": True}
 
     # ── Commune ──────────────────────────────────────────────────────────────
@@ -193,6 +208,9 @@ class SemanticFieldCorrector:
         2. Correspondance préfixe
         3. Fuzzy matching (rapidfuzz)
         4. Smith-Waterman local (depuis main.py)
+
+        NOTE : Le code INSEE entre parenthèses (ex: SAINT-PRIVAT (289)) est
+        retiré AVANT la normalisation pour ne pas polluer le fuzzy match.
         """
         try:
             from rapidfuzz import process as rp, fuzz as rf
@@ -202,7 +220,18 @@ class SemanticFieldCorrector:
         if not self.commune_db:
             return {"valeur": txt, "confiance": 0.3, "methode": "no_db", "valide": False}
 
-        norm = _normalize_commune(txt)
+        # --- CORRECTION : extraire le code INSEE AVANT la normalisation ---
+        # Sur les documents DGFIP récents, la commune est écrite : "SAINT-PRIVAT (289)"
+        # Le (289) est le code INSEE → on l'extrait et on le retire du texte avant le match.
+        code_insee_extrait = ""
+        m_insee = re.search(r'\((\d{3,5})\)', txt)
+        if m_insee:
+            code_insee_extrait = m_insee.group(1)
+            txt_sans_insee = txt[:m_insee.start()].strip()
+        else:
+            txt_sans_insee = txt
+
+        norm = _normalize_commune(txt_sans_insee)
 
         # 1. Correspondance exacte
         if norm in self._commune_index:
@@ -259,12 +288,16 @@ class SemanticFieldCorrector:
 
         if best_entry and best_score >= 45:
             confiance = min(1.0, best_score / 100.0)
+            # Retourner le code INSEE extrait du document si trouvé,
+            # sinon utiliser celui de la base.
+            code_final = code_insee_extrait if code_insee_extrait else best_entry.get("code", "")
             return {
                 "valeur": best_entry["officiel"],
                 "confiance": confiance,
                 "methode": f"fuzzy({best_score:.0f}%)",
                 "valide": best_score >= 70,
-                "code": best_entry.get("code", ""),
+                "code": code_final,
+                "code_insee_doc": code_insee_extrait,  # code lu directement sur le doc
             }
 
         return {"valeur": txt, "confiance": 0.2, "methode": "echec", "valide": False}
@@ -327,6 +360,119 @@ class SemanticFieldCorrector:
             return {"valeur": valeur, "confiance": 0.80, "methode": "date_complete", "valide": True}
 
         return {"valeur": txt, "confiance": 0.3, "methode": "format_inconnu", "valide": False}
+
+    # ── N° d'ordre / Dossier DA ─────────────────────────────────────────────────
+
+    def _correct_dossier(self, txt: str) -> Dict[str, Any]:
+        """
+        Extrait et valide un numéro d'ordre DA ou de dossier.
+
+        Formats attendus (observés sur les plans Ardèche/Drôme) :
+          - Tha23a16ca, Val19c11da  : [2-4 lettres][2 chiffres][1-2 lettres][2-4 chiffres][0-4 lettres]
+          - 07A00123               : départemental
+          - 2024-DA-001, 2024-001  : numérique avec tirets
+
+        Si plusieurs candidats sont présents dans le texte (ex: ligne mixte),
+        on privilégie celui qui correspond au pattern le plus complet.
+        """
+        # Pattern principal : format alphanumérique alterné type DA ardèchois
+        # Ex: Tha23a16ca, Val19c11da
+        DA_PATTERN = re.compile(
+            r'\b[A-Za-z]{2,4}\d{1,2}[A-Za-z]{1,2}\d{2,4}[A-Za-z]{0,4}\b'
+        )
+        # Pattern secondaire : format numérique avec séparateurs (ex: 2024-DA-001)
+        NUM_PATTERN = re.compile(
+            r'\b\d{2,4}[-\/][A-Z]{0,3}[-\/]?\d{2,6}\b'
+        )
+        # Pattern tertiaire : séquence purement alphanumérique mixte (ex: 07A00123)
+        MIX_PATTERN = re.compile(
+            r'\b\d{2}[A-Z]{1,3}\d{4,6}\b'
+        )
+        # Pattern générique (très courant) : chiffres avec ou sans lettre à la fin (ex: 891-A, 677, 677 J)
+        SIMPLE_PATTERN = re.compile(
+            r'\b\d{1,5}(?:\s*[-\.]?\s*[A-Z]{1,3})?\b'
+        )
+
+        # Appliquer les corrections OCR basiques avant la recherche
+        corrected = txt
+
+        # Chercher les candidats dans l'ordre de priorité
+        for pattern in (DA_PATTERN, NUM_PATTERN, MIX_PATTERN, SIMPLE_PATTERN):
+            matches = pattern.findall(corrected)
+            if matches:
+                # Prendre le plus long match (le plus complet)
+                best = max(matches, key=len).strip()
+                
+                # Rejeter si le match correspond exactement à une année (19xx ou 20xx)
+                clean_best = re.sub(r'\s+', '', best)
+                if re.match(r'^(19|20)\d{2}$', clean_best):
+                    continue
+                    
+                confiance = 0.92 if pattern is DA_PATTERN else 0.80
+                return {
+                    "valeur": best,
+                    "confiance": confiance,
+                    "methode": "regex_da",
+                    "valide": True,
+                }
+
+        # Aucun pattern reconnu : on retourne le texte brut avec confiance faible
+        return {"valeur": txt, "confiance": 0.35, "methode": "da_libre", "valide": False}
+
+    # ── Géomètre ─────────────────────────────────────────────────────────────
+
+    def _correct_geometre(self, txt: str) -> Dict[str, Any]:
+        """
+        Validation stricte du géomètre-expert.
+
+        Priorité :
+        1. Correspondance avec la whitelist des géomètres-experts connus (fuzzy)
+        2. Correspondance exacte (sous-chaîne)
+        3. Rejet si non dans la liste (anti-hallucination)
+
+        Le nom est nettoyé des mots parasites avant la comparaison.
+        """
+        val_norm = txt.lower()
+        # Mots à ignorer pour isoler le nom propre du géomètre
+        blacklisted_words = [
+            "expert", "cabinet", "geometre", "géomètre", "dresse", "dressé",
+            "par", "le", "soussigne", "soussigné", "géomètre-expert", "geometre-expert",
+            "m.", "mr.", "mme", "mme.", "inspecteur", "finances", "publiques",
+            "publique", "des", "la", "et", "soussignée"
+        ]
+        clean_words = [w for w in val_norm.split() if w not in blacklisted_words]
+        if not clean_words:
+            return {"valeur": "", "confiance": 0.0, "methode": "geometre_invalide", "valide": False}
+
+        val_clean = " ".join(clean_words).upper()
+        val_clean_norm = re.sub(r"[^A-Z0-9 \-]", " ", val_clean).strip()
+
+        # Importer ici pour éviter les dépendances circulaires
+        try:
+            from plan_classifier import GEOMETRES_CONNUS
+        except ImportError:
+            GEOMETRES_CONNUS = ["DUPUY", "HARROIS", "RACAT", "SERRET", "CEYTE", "BARRIAL", "ROBERT"]
+
+        # 1. Fuzzy matching avec la whitelist stricte
+        try:
+            from rapidfuzz import process as rfp, fuzz
+            if len(val_clean_norm) >= 3:
+                result = rfp.extractOne(val_clean_norm, GEOMETRES_CONNUS, scorer=fuzz.WRatio)
+                if result and result[1] >= 75:
+                    return {"valeur": result[0], "confiance": 0.95,
+                            "methode": "geometre_whitelist", "valide": True}
+        except ImportError:
+            pass
+
+        # 2. Correspondance exacte (sous-chaîne)
+        for geo in GEOMETRES_CONNUS:
+            if geo.lower() in val_norm:
+                return {"valeur": geo, "confiance": 0.95,
+                        "methode": "geometre_whitelist_exact", "valide": True}
+
+        # 3. Rejet strict (anti-hallucination)
+        return {"valeur": "", "confiance": 0.0, "methode": "geometre_invalide", "valide": False}
+
 
 
 def _normalize_commune(text: str) -> str:

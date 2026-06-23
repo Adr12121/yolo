@@ -1,0 +1,25 @@
+J'ai maintenant une vision complète de ton projet. Voici une analyse détaillée.
+
+---
+
+## 🔍 Analyse : Cahier des charges vs. Outputs produits
+
+### 📋 Ce que le projet vise à faire (cahier des charges implicite)
+
+D'après le README, la Notice et l'historique des conversations, les objectifs sont :
+
+| Objectif | Description |
+|---|---|
+| **Classification** | Identifier le type de document : `PVa`, `PLa`, `DMPC`, `GENERIC` |
+| **OCR hybride** | Combiner Tesseract (imprimé) + TrOCR/Kraken (manuscrit) |
+| **Extraction de KPI** | Commune, N°Dossier, N°Ordre, Section, Géomètre, Date, Propriétaires, Parcelles, Échelle |
+| **Validation 4 couches** | Rule Engine → Pydantic → LLM Ollama → Knowledge Graph |
+| **Vote multi-stratégies** | Corroborer les valeurs par plusieurs méthodes avant de les confirmer |
+| **Exports** | JSON structuré + CSV prêt pour Géofoncier |
+| **Interface humaine** | Streamlit pour validation manuelle finale |
+
+---
+
+### ✅ Ce qui fonctionne bien (points forts)
+
+<truncated 5026 bytes>

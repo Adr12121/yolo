@@ -1,0 +1,30 @@
+﻿import codecs
+
+file_path = 'plan_classifier.py'
+with codecs.open(file_path, 'r', 'utf-8') as f:
+    content = f.read()
+
+target = '''    val = val.replace('"', '').replace("'", "").strip(" '.:,")
+    return val'''
+
+replacement = '''    val = val.replace('"', '').replace("'", "").strip(" '.:,")
+    
+    if field == "indication":
+        val_clean = val.strip().upper()
+        if "A" in val_clean and "B" not in val_clean and "C" not in val_clean:
+            return "d'après les indications qu'ils ont fournies au bureau"
+        elif "B" in val_clean and "A" not in val_clean and "C" not in val_clean:
+            return "en conformité d'un piquetage qu'ils ont effectué sur le terrain"
+        elif "C" in val_clean and "A" not in val_clean and "B" not in val_clean:
+            return "d'après un plan d'arpentage ou de bornage, dont copie ci-jointe"
+            
+    return val'''
+
+if target in content:
+    content = content.replace(target, replacement)
+    print("Injected indication into _clean_vlm_response")
+else:
+    print("Failed to find target in _clean_vlm_response")
+
+with codecs.open(file_path, 'w', 'utf-8') as f:
+    f.write(content)

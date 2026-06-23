@@ -21,8 +21,20 @@ class _TeeOutput:
         for f in self.files: f.flush()
 
 _log_file = open(_log_path, 'w', encoding='utf-8')
-sys.stdout = _TeeOutput(sys.__stdout__, _log_file)
-sys.stderr = _TeeOutput(sys.__stderr__, _log_file)
+
+# Sur Windows, forcer UTF-8 sur stdout/stderr pour eviter les corruptions d'accents (cp1252 par defaut)
+import io
+if hasattr(sys.__stdout__, 'buffer'):
+    _stdout_utf8 = io.TextIOWrapper(sys.__stdout__.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+else:
+    _stdout_utf8 = sys.__stdout__
+if hasattr(sys.__stderr__, 'buffer'):
+    _stderr_utf8 = io.TextIOWrapper(sys.__stderr__.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+else:
+    _stderr_utf8 = sys.__stderr__
+
+sys.stdout = _TeeOutput(_stdout_utf8, _log_file)
+sys.stderr = _TeeOutput(_stderr_utf8, _log_file)
 print(f"[LOG] Sortie enregistrée dans : {_log_path}")
 # =======================================
 
@@ -53,6 +65,7 @@ try:
     from plan_classifier import (
         is_plan_document,
         classify_plan,
+        classify_plan_with_ocr,
         process_plan,
         export_plan_to_csv,
     )
@@ -76,10 +89,16 @@ from PIL import Image, ImageDraw, ImageFont  # type: ignore
 import torch  # type: ignore
 import re
 from collections import defaultdict
-from kraken import blla, rpred  # type: ignore
-from kraken.lib import models as kraken_models  # type: ignore
+try:
+    from kraken import blla, rpred  # type: ignore
+    from kraken.lib import models as kraken_models  # type: ignore
+except ImportError:
+    pass
 import unicodedata
-from spellchecker import SpellChecker  # type: ignore
+try:
+    from spellchecker import SpellChecker  # type: ignore
+except ImportError:
+    SpellChecker = None
 
 try:
     from rapidfuzz import process, fuzz  # type: ignore
@@ -878,81 +897,28 @@ def setup_directories():
     os.makedirs('outputs', exist_ok=True)
 
 def load_models(nom_modele="agomberto/trocr-large-handwritten-fr"):
-    """Charge les modèles YOLO, EasyOCR et TrOCR."""
+    """Charge les modèles YOLO et EasyOCR. Les modèles lourds (TrOCR, VLM) sont désactivés pour le pipeline Plans."""
     print("Chargement du modèle YOLOv8 pour la détection...")
-    # Utilisation de yolov8n.pt pour détecter les zones. 
-    # Note : Le modèle de base détecte des objets généraux. Pour un usage réel, 
-    # il faudrait fine-tuner YOLO pour détecter spécifiquement "texte imprimé" et "texte manuscrit".
     yolo_model = YOLO('yolov8n.pt')
 
     print("Chargement d'EasyOCR pour le texte imprimé...")
-    # Initialisation de EasyOCR (en français et anglais), utilise le GPU si disponible
     easyocr_reader = easyocr.Reader(['fr', 'en'], gpu=torch.cuda.is_available())
 
-    print("Chargement de TrOCR (version Française affinée agomberto)...")
-    print(f"Chargement de TrOCR (modèle : {nom_modele})...")
-    processor = TrOCRProcessor.from_pretrained(nom_modele)
-    trocr_model = VisionEncoderDecoderModel.from_pretrained(nom_modele)
+    print("Chargement du Correcteur Orthographique...")
+    if SpellChecker is not None:
+        spell = SpellChecker(language='fr')
+        mots_metier = ['contenance', 'lieudit', 'parcelle', 'section', 'echelle', 'dmpc', 'geofoncier', 'superficie', 'cadastre', 'limite', 'borne', 'mur', 'mitoyen']
+        spell.word_frequency.load_words(mots_metier)
+    else:
+        spell = None
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    trocr_model.to(device)
-    
-    print("Chargement du modèle de reconnaissance PyLaia (Kraken) pour Indice de Confiance...")
-    pylaia_model_path = "catmus_large.mlmodel"
-    if os.path.exists(pylaia_model_path):
-        pylaia_model = kraken_models.load_any(pylaia_model_path)
-    else:
-        print("ATTENTION: Modèle PyLaia catmus_large.mlmodel introuvable. Score de confiance désactivé.")
-        pylaia_model = None
 
-    print("Chargement du Correcteur Orthographique...")
-    spell = SpellChecker(language='fr')
-    # Ajout du vocabulaire technique métier
-    mots_metier = ['contenance', 'lieudit', 'parcelle', 'section', 'echelle', 'dmpc', 'geofoncier', 'superficie', 'cadastre', 'limite', 'borne', 'mur', 'mitoyen']
-    spell.word_frequency.load_words(mots_metier)
-
-    # --- VLM POST-CORRECTION (Vision Language Model) ---
-    # Qwen2-VL-2B-Instruct : modèle multimodal capable d'analyser une image ET du texte.
-    # Il joue le rôle de paléographe : il voit la cellule manuscrite et raisonne sur la commune.
-    # Retourné sous la forme d'un tuple (vlm_model, vlm_processor) pour rester compatible
-    # avec le reste du pipeline sans changer les signatures.
-    try:
-        print("Chargement du VLM paléographe (Qwen2-VL-2B-Instruct)...")
-        import sys
-        import subprocess
-        try:
-            import accelerate
-            import qwen_vl_utils
-        except ImportError:
-            print("[INSTALL] 'accelerate' ou 'qwen-vl-utils' manquant dans l'environnement actuel. Installation automatique en cours...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "accelerate", "qwen-vl-utils", "torchvision"])
-            
-        from transformers import Qwen2VLForConditionalGeneration, AutoProcessor  # type: ignore
-        vlm_model_id = "Qwen/Qwen2-VL-2B-Instruct"
-        vlm_processor = AutoProcessor.from_pretrained(vlm_model_id)
-        
-        try:
-            from transformers import BitsAndBytesConfig
-            quant_config = BitsAndBytesConfig(load_in_8bit=True)
-            vlm_model = Qwen2VLForConditionalGeneration.from_pretrained(
-                vlm_model_id,
-                device_map="auto",
-                quantization_config=quant_config
-            )
-            print(" -> VLM Qwen2-VL-2B chargé en mode 8-bit (économie de RAM).")
-        except ImportError:
-            vlm_model = Qwen2VLForConditionalGeneration.from_pretrained(
-                vlm_model_id,
-                torch_dtype=torch.float16,
-                device_map="auto"
-            )
-            print(" -> VLM Qwen2-VL-2B chargé de base (FP16). (Installez bitsandbytes pour 8-bit).")
-            
-        vlm_model.eval()
-        llm_pipeline = (vlm_model, vlm_processor)  # tuple (model, processor)
-    except Exception as e:
-        print(f"ATTENTION: Impossible de charger le VLM Qwen2-VL ({e}). L'arbitrage visuel sera désactivé.")
-        llm_pipeline = None
+    # Modèles lourds désactivés pour accélérer le démarrage du pipeline Plans
+    processor = None
+    trocr_model = None
+    pylaia_model = None
+    llm_pipeline = None
 
     return yolo_model, easyocr_reader, processor, trocr_model, device, spell, pylaia_model, llm_pipeline
 
@@ -1223,7 +1189,7 @@ def extract_kpis_from_layout(results_data, villes_dict=None, commune_db=None):
         "proprietaire": ["propriétaire", "demandeur", "propriété de", "m.", "mme", "sci"],
         "cadastre_section": ["section", "section :", "section cadastrale"],
         "cadastre_parcelle": ["parcelle n°", "parcelle :", "parcelles :", "numéro :"],
-        "ordre_document": ["ordre :", "n° d'ordre", "document d'ordre"]
+        "ordre_document": ["document d'arpentage", "d'arpentage :", "d'arpentage", "ordre :", "n° d'ordre", "document d'ordre", "numéro d'ordre"]
     }
 
     # Mots à exclure
@@ -1237,6 +1203,13 @@ def extract_kpis_from_layout(results_data, villes_dict=None, commune_db=None):
         for det in detections:
             det["page_idx"] = p_idx
             all_lines.append(det)
+
+    # Tri spatial : garantit que all_lines[i+1] est réellement la ligne spatialement suivante
+    # (EasyOCR ne garantit pas l'ordre de détection)
+    all_lines.sort(key=lambda l: (
+        l.get('page_idx', 0),
+        (l.get('bbox') or l.get('box') or [0, 0, 0, 0])[1]  # y1
+    ))
 
     for i, line in enumerate(all_lines):
         txt_raw = line["texte"]
@@ -1306,7 +1279,38 @@ def extract_kpis_from_layout(results_data, villes_dict=None, commune_db=None):
                             if best_candidate_text:
                                 valeur = best_candidate_text
                                 found_in_same = True
-                                
+
+                            # 2bis. Recherche à DROITE (layout horizontal : Label | Valeur sur même ligne)
+                            if not found_in_same:
+                                cy_pivot_r = (py_min + py_max) / 2.0
+                                best_right_text = None
+                                min_x_diff_r = float('inf')
+                                for other_line_r in all_lines:
+                                    if other_line_r.get("page_idx") != line.get("page_idx"):
+                                        continue
+                                    other_box_r = other_line_r.get("bbox") or other_line_r.get("box")
+                                    if not other_box_r:
+                                        continue
+                                    ox_min_r, oy_min_r, ox_max_r, oy_max_r = other_box_r
+                                    cy_other_r = (oy_min_r + oy_max_r) / 2.0
+                                    tolerance_y_r = max((py_max - py_min) * 0.7, 20)
+                                    # À droite ET sur la même ligne horizontale
+                                    if ox_min_r > px_max and abs(cy_other_r - cy_pivot_r) < tolerance_y_r:
+                                        x_diff_r = ox_min_r - px_max
+                                        if x_diff_r < min_x_diff_r and x_diff_r < 500:
+                                            is_pivot_r = False
+                                            for other_kws_r in pivots.values():
+                                                for okw_r in other_kws_r:
+                                                    if okw_r in other_line_r["texte"].lower():
+                                                        is_pivot_r = True; break
+                                                if is_pivot_r: break
+                                            if not is_pivot_r:
+                                                min_x_diff_r = x_diff_r
+                                                best_right_text = other_line_r["texte"].strip()
+                                if best_right_text and len(best_right_text) > 1:
+                                    valeur = best_right_text
+                                    found_in_same = True
+
                     # 3. Fallback: Si rien à droite ou géométriquement, on regarde la ligne texte brute en dessous
                     if not found_in_same and i + 1 < len(all_lines):
                         next_line = all_lines[i+1].get("texte", "")  # type: ignore
@@ -1469,6 +1473,74 @@ def extract_kpis_from_layout(results_data, villes_dict=None, commune_db=None):
             kpis["commune"] = best_commune
         else:
             kpis["commune"] = "Commune non identifiée"
+
+    # ================================================================
+    # === FALLBACK : NORME LOGIQUE DES CHAMPS (nouveaux documents) ===
+    # Pour les champs ENCORE inconnus, on scanne l'intégralité du texte
+    # avec des patterns regex correspondant à la forme attendue du champ.
+    # Ne s'active QUE si le champ est toujours "Inconnu" — ne peut donc
+    # pas dégrader une valeur déjà trouvée par les méthodes précédentes.
+    # ================================================================
+    texte_doc_complet = " ".join(l["texte"].strip() for l in all_lines if l.get("texte"))
+
+    # -- Section cadastrale (1-2 lettres majuscules isolées) --
+    if kpis.get("cadastre_section", "Inconnu") == "Inconnu":
+        for pat_sec in [
+            r'(?:section|sect\.?)\s*[:\-\.\s]\s*([A-Z]{1,2})\b',
+            r'\bsection\s+([A-Z]{1,2})\b',
+            r'\b([A-Z]{1,2})\s+(?:section|sect)\.?\b',
+        ]:
+            m_sec = re.search(pat_sec, texte_doc_complet, re.IGNORECASE)
+            if m_sec:
+                val_sec = m_sec.group(1).upper()
+                if re.match(r'^[A-Z]{1,2}$', val_sec):
+                    kpis["cadastre_section"] = val_sec
+                    print(f"  [NormeLogique] Section trouvée par pattern : '{val_sec}'")
+                    break
+
+    # -- Parcelle (séquence numérique après le mot-clé) --
+    if kpis.get("cadastre_parcelle", "Inconnu") == "Inconnu":
+        for pat_par in [
+            r'(?:parcelle|parc\.?)\s*[n°:\-\.\s]+([0-9]{1,5})',
+            r'(?:n°|no\.?)\s*parcelle[s]?\s*[:\-]?\s*([0-9]{1,5})',
+        ]:
+            m_par = re.search(pat_par, texte_doc_complet, re.IGNORECASE)
+            if m_par:
+                kpis["cadastre_parcelle"] = m_par.group(1)
+                print(f"  [NormeLogique] Parcelle trouvée par pattern : '{m_par.group(1)}'")
+                break
+
+    # -- Échelle (format 1/XXX ou 1:XXX) --
+    if kpis.get("echelle", "Inconnu") == "Inconnu":
+        m_ech = re.search(r'(?:echelle|ech\.?)\s*[:\-\s]?\s*(1\s*[/:]\s*[0-9]{2,6})', texte_doc_complet, re.IGNORECASE)
+        if not m_ech:
+            m_ech = re.search(r'\b(1\s*/\s*[0-9]{3,6})\b', texte_doc_complet)
+        if m_ech:
+            val_ech = re.sub(r'\s+', '', m_ech.group(1))
+            kpis["echelle"] = val_ech
+            print(f"  [NormeLogique] Echelle trouvée par pattern : '{val_ech}'")
+
+    # -- N° de dossier / DA (format numérique ou alphanum) --
+    if kpis.get("n_dossier", "Inconnu") == "Inconnu":
+        for pat_da in [
+            r'(?:n[°o]\s*(?:da|dossier|d\.a\.)|dossier\s*n[°o])[\s:\-\.]*([A-Z0-9][A-Z0-9\-\/]{1,15})',
+            r'(?:n[°o]\s*d[\'\.]?(?:ordre|inscription))[\s:\-\.]*([0-9]{2,8})',
+        ]:
+            m_da = re.search(pat_da, texte_doc_complet, re.IGNORECASE)
+            if m_da:
+                kpis["n_dossier"] = m_da.group(1).strip()
+                print(f"  [NormeLogique] N° dossier trouvé par pattern : '{m_da.group(1).strip()}'")
+                break
+
+    # -- Ordre document (numérique isolé près du mot-clé) --
+    if kpis.get("ordre_document", "Inconnu") == "Inconnu":
+        m_ord = re.search(
+            r"(?:n[°o\.]+\s*d['']?ordre|d['']?ordre)[\s:\-\.]*([0-9]{2,8})",
+            texte_doc_complet, re.IGNORECASE
+        )
+        if m_ord:
+            kpis["ordre_document"] = m_ord.group(1).strip()
+            print(f"  [NormeLogique] N° d'ordre trouvé par pattern : '{m_ord.group(1).strip()}'")
 
     return kpis
 
@@ -2978,12 +3050,11 @@ def process_document_hybrid(file_path, models, villes_dict, commune_db):
                 txt_brut = data['ocr_brut']
                 roi_brute = data['roi']
 
-                # resolve_unknown (sans boost visuel HOG)
                 match_adv = resolve_unknown_commune(txt_brut, commune_db, writer_learner, roi_brute)
                 match_adv = _apply_first_letter_bonus(txt_brut, match_adv)
                 match_adv = _apply_antirep_penalty(match_adv, page_commune_counts, n_total_cells)
 
-                # VLM si toujours incertain et OCR suffisamment informatif
+              
                 _info_iter = _ocr_informativeness(txt_brut)
                 if match_adv['score'] < WriterStyleLearner.SEUIL_CERTITUDE and llm_pipeline and _info_iter >= 0.15:
                     try:
@@ -3385,6 +3456,15 @@ def process_document_hybrid(file_path, models, villes_dict, commune_db):
     print(f"-> Résultat visuel : {first_page_output_path}")
     print(f"-> Résultat texte  : {json_path}")
 
+    import gc
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+    gc.collect()
+
     t_fichier_s = time.time() - t0_fichier
     print(f"--- Temps de traitement : {int(t_fichier_s // 60)} min {int(t_fichier_s % 60)} s ---")
 
@@ -3396,7 +3476,8 @@ if __name__ == "__main__":
     setup_directories()
     print("Dossiers 'inputs' et 'outputs' prêts.")
 
-    fichiers_entree = [f for f in os.listdir('inputs') if f.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg'))]
+    import sys
+    fichiers_entree = [os.path.basename(sys.argv[1])] if len(sys.argv) > 1 else [f for f in os.listdir('inputs') if f.lower().endswith(('.pdf', '.png', '.jpg', '.jpeg'))]
 
     if fichiers_entree:
         models_charges = load_models()
@@ -3413,6 +3494,15 @@ if __name__ == "__main__":
             print(f"\n======================================")
             print(f"Traitement du fichier : {document_test}")
 
+            # ── FIX 7 : Vérification de la taille minimale du fichier ──────────
+            taille_ko = os.path.getsize(document_test) / 1024
+            if taille_ko < 50:
+                print(f"⚠️  ATTENTION : '{fichier}' fait seulement {taille_ko:.1f} Ko.")
+                print(f"   Un fichier PDF cadastral normal pèse au moins 50 Ko.")
+                print(f"   Ce fichier est peut-être corrompu, vide ou contient uniquement des métadonnées.")
+                print(f"   Le traitement va continuer, mais les résultats peuvent être vides.")
+            # ────────────────────────────────────────────────────────────────────
+
             # ── ROUTAGE PRIORITAIRE : Plan vs Livret ──────────────────────────
             # On teste d'abord le nouveau classifier (plus précis).
             # Si indisponible, on repasse sur l'ancien is_modern_plan().
@@ -3427,11 +3517,46 @@ if __name__ == "__main__":
                 # ── Pipeline PLANS ────────────────────────────────────────────
                 if _PLAN_CLASSIFIER_AVAILABLE:
                     # === NOUVEAU PIPELINE SPATIALISÉ ===
-                    type_plan = classify_plan(document_test)
-                    print(f">> Type détecté : PLAN [{type_plan}]")
-                    print(f">> Lancement pipeline spatialisé plan_classifier")
+                    reader = models_charges[1] if len(models_charges) > 1 else None
+                    type_plan = classify_plan_with_ocr(document_test, reader)
+                    print(f">> Type détecté après OCR : PLAN [{type_plan}]")
+                    
+                    if type_plan == "GENERIC" and _MODERN_PLAN_AVAILABLE:
+                        print(f">> Routage dynamique : PLAN MODERNE (LLM)")
+                        commune_db_plan = list(commune_db)
+                        nationale = load_commune_db_nationale('communes_france.json')
+                        noms_existants = {e['normalise'] for e in commune_db_plan}
+                        ajouts = [e for e in nationale if e['normalise'] not in noms_existants]
+                        commune_db_plan.extend(ajouts)
 
-                    result_plan = process_plan(document_test, models=models_charges, commune_db=commune_db)
+                        geometre_id_plan = re.sub(r'[^a-zA-ZÀ-ÿ0-9_\-]', '_',
+                            re.sub(r'[_\-]?\d+$', '', os.path.splitext(fichier)[0]).strip() or 'inconnu'
+                        )[:30]
+
+                        result_plan_raw = process_modern_plan(
+                            document_test,
+                            commune_db=commune_db_plan,
+                            geometre_id=geometre_id_plan,
+                        )
+                        # ── Adapter format modern_plan → plan_classifier pour export CSV ──
+                        adapted_pages = []
+                        for pg in result_plan_raw.get('pages', []):
+                            champs_pg = dict(pg.get('champs', {}))
+                            # Normaliser le code_insee en dict exportable
+                            if 'code_insee' in champs_pg and isinstance(champs_pg['code_insee'], str):
+                                champs_pg['code_insee'] = {'valeur': champs_pg['code_insee'], 'confiance': 1.0, 'methode': 'dgfip_doc', 'zone': [0,0,0,0]}
+                            adapted_pages.append({'page': pg.get('page', 1), 'champs': champs_pg})
+                        champs_consolides = adapted_pages[0]['champs'] if adapted_pages else {}
+                        result_plan = {
+                            'fichier': result_plan_raw.get('fichier', document_test),
+                            'type_plan': 'GENERIC',
+                            'nb_pages': len(adapted_pages),
+                            'champs': champs_consolides,
+                            'pages': adapted_pages,
+                        }
+                    else:
+                        print(f">> Routage dynamique : FORMULAIRE/ANCIEN ({type_plan}) (VLM/Ancrage)")
+                        result_plan = process_plan(document_test, models=models_charges, commune_db=commune_db)
 
                     if result_plan.get("skipped"):
                         print(f">> Plan ignoré : {result_plan.get('raison')}")
@@ -3485,3 +3610,5 @@ if __name__ == "__main__":
     else:
         print("Le dossier 'inputs' est vide.")
         print("-> Veuillez placer un document (.pdf, .jpg, .png) dans le dossier 'inputs' et relancer.")
+
+

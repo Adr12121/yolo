@@ -23,3 +23,9 @@ dataset_images/
 
 # Variables d'environnement
 .env
+
+# Fichiers volumineux bloqués par GitHub
+Filiation_parcelles/*.zip
+*_Répertoire des archives BARRIAL & HARROIS.pdf/*.pdf
+*.mlmodel
+*.pt

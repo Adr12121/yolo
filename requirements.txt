@@ -1,0 +1,32 @@
+# ─── requirements.txt — Pipeline OCR Cadastral ───────────────────────────────
+# Installer avec :  pip install -r requirements.txt
+# (dans l'environnement .venv du projet)
+
+# ── OCR & Traitement d'image ──────────────────────────────────────────────────
+easyocr                   # OCR principal (CRAFT + text recognition)
+opencv-python             # Traitement images (cv2)
+Pillow                    # Manipulation images (PIL)
+pymupdf                   # Lecture PDF haute résolution (fitz)
+numpy                     # Calcul matriciel
+
+# ── Machine Learning / NLP ────────────────────────────────────────────────────
+torch                     # Backend PyTorch (EasyOCR, GLiNER)
+torchvision               # Vision PyTorch
+transformers              # HuggingFace (TrOCR, modèles pré-entraînés)
+gliner                    # Extraction sémantique (NER zero-shot)
+
+# ── YOLO & Détection ─────────────────────────────────────────────────────────
+ultralytics               # YOLOv8
+
+# ── Dashboard & Interface ─────────────────────────────────────────────────────
+streamlit                 # Interface web interactive
+folium                    # Cartes interactives Leaflet.js
+streamlit-folium          # Intégration Folium dans Streamlit
+
+# ── Validation & Cohérence ────────────────────────────────────────────────────
+pydantic                  # Validation de schéma (Couche B coherence_checker)
+rapidfuzz                 # Fuzzy matching (communes, noms)
+requests                  # Appels HTTP Ollama (Couche C — optionnel si Ollama installé)
+
+# ── Données & Export ──────────────────────────────────────────────────────────
+pandas                    # Manipulation CSV/DataFrame

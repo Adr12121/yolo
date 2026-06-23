@@ -35,6 +35,7 @@ Usage depuis main.py :
 import os
 import re
 import json
+import subprocess
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -44,6 +45,40 @@ import pandas as pd  # type: ignore
 import fitz  # PyMuPDF  # type: ignore
 from PIL import Image  # type: ignore
 
+
+# ---------------------------------------------------------------------------
+# 0. CONSTANTES DOCUMENTS DGFIP RECENTS
+# ---------------------------------------------------------------------------
+
+# Signature texte identifiant les documents DGFIP recents (extrait cadastral modifié)
+DGFIP_SIGNATURE = "DIRECTION GENERALE DES FINANCES PUBLIQUES"
+
+# Blacklist : phrases boilerplate du formulaire DGFIP à NE PAS extraire
+# comme propriétaires/signataires/géomètre
+_DGFIP_BOILERPLATE = {
+    "déclarent avoir pris connaissance des informations portées",
+    "au dos de la chemise 6463",
+    "s'il est différent du propriétaire",
+    "mandataire",
+    "avoué",
+    "représentant qualifié de l'autorité expropriant",
+    "le présent document d'arpentage",
+    "certifié par les propriétaires soussignés",
+    "a été établi",
+    "d'après les indications",
+    "en conformité d'un piquetage",
+    "effectué sur le terrain",
+    "d'après un plan d'arpentage",
+    "modification selon les énonciations",
+    "art. 25 du décret",
+    "inspection des finances",
+    "inspecteur des finances",
+    "certification",
+    "sdif",
+    "ptgc",
+    "a ptgc",
+    "signé",
+}
 
 # ---------------------------------------------------------------------------
 # 1. LABELS CONNUS DANS LES PLANS MODERNES (multi-variantes)
@@ -61,7 +96,7 @@ PLAN_LABELS: Dict[str, List[str]] = {
     "n_ordre": [
         "n° d'ordre", "numéro d'ordre", "n° ordre", "numéro ordre",
         "référence", "n° dossier", "dossier n°", "affaire n°",
-        "n°", "ordre"
+        "n°", "ordre", "document d'arpentage", "d'arpentage"
     ],
     "proprietaires_anciens": [
         "ancien propriétaire", "anciens propriétaires", "propriétaire sortant",
@@ -281,7 +316,7 @@ def _normalize_label(text: str) -> str:
     nfkd = unicodedata.normalize("NFKD", str(text))
     s = "".join(c for c in nfkd if not unicodedata.combining(c))
     return re.sub(r"[^a-z0-9 ]", " ", s.lower()).strip()
-
+    
 
 def _identify_label(text: str) -> Optional[str]:
     """Identifie le type de champ depuis un texte de label."""
@@ -289,33 +324,69 @@ def _identify_label(text: str) -> Optional[str]:
     for field_type, keywords in PLAN_LABELS.items():
         for kw in sorted(keywords, key=len, reverse=True):
             kw_norm = _normalize_label(kw)
-            if kw_norm and kw_norm in norm:
-                return field_type
+            if not kw_norm: continue
+            
+            # Si le mot-clé normalisé est très court (ex: 'n' pour 'n°', '1' pour '1/'), 
+            # il doit apparaître comme un mot isolé pour éviter les faux positifs massifs.
+            if len(kw_norm) <= 2:
+                # Vérifie les frontières de mots
+                if re.search(r'\b' + re.escape(kw_norm) + r'\b', norm):
+                    return field_type
+            else:
+                if kw_norm in norm:
+                    return field_type
     return None
 
 
 def _extract_inline_value(text: str, field_type: str) -> Optional[str]:
-    """Extrait la valeur sur la même ligne, même sans deux-points, en supprimant le label."""
+    """
+    Extrait la valeur sur la même ligne en cherchant le texte APRÈS le label.
+    
+    Stratégie :
+    1. Localiser la position du label dans la ligne
+    2. Prendre le texte qui se trouve APRÈS ce label (+ séparateur optionnel)
+    3. Nettoyer les séparateurs résiduels
+    
+    Ex: "Section C – commune: Ucel – Lieudit" avec label="commune"
+        → cherche "commune" dans le texte → prend ": Ucel – Lieudit"
+        → split sur "–" → prend "Ucel" ✅
+    """
     import re
-    # 1. Cherche deux points ou une longue suite de points/tirets
-    m = re.split(r'[:–]|\.{2,}', text, maxsplit=1)
-    if len(m) > 1:
-        val = m[1].strip()
-        if len(val) > 1:
-            return val
-            
-    # 2. Si pas de séparateur, on retire le label détecté du texte
-    norm_text = text.lower()
+    
+    text_lower = text.lower()
+    
+    # Trouver la position du label le plus long qui matche (le plus spécifique en premier)
+    best_kw_end = -1
     for kw in sorted(PLAN_LABELS.get(field_type, []), key=len, reverse=True):
-        if kw.lower() in norm_text:
-            idx = norm_text.find(kw.lower())
-            if idx != -1:
-                val = text[idx + len(kw):].strip()
-                # Enlever les éventuels tirets ou points restants au début
-                val = re.sub(r'^[\s\-\.:]+', '', val)
-                if len(val) > 1:
-                    return val
-    return None
+        kw_lower = kw.lower()
+        idx = text_lower.find(kw_lower)
+        if idx != -1:
+            kw_end = idx + len(kw)
+            if kw_end > best_kw_end:
+                best_kw_end = kw_end
+                break  # prendre le plus long match trouvé
+    
+    if best_kw_end == -1:
+        return None  # label non trouvé dans la ligne
+    
+    # Texte après le label
+    after_label = text[best_kw_end:].strip()
+    
+    # Retirer les séparateurs de début (:, –, -, ., espaces)
+    after_label = re.sub(r'^[\s:;\-–\|\.]+', '', after_label).strip()
+    
+    if not after_label or len(after_label) < 2:
+        return None
+    
+    # Si la valeur contient encore un séparateur fort (–, |) → prendre jusqu'au 1er
+    # (ex: "Ucel – Lieudit Montagne" → prendre "Ucel" seulement)
+    first_sep = re.search(r'[–|]|\s{3,}', after_label)
+    if first_sep and first_sep.start() > 1:
+        candidate = after_label[:first_sep.start()].strip()
+        if len(candidate) > 1:
+            return candidate
+    
+    return after_label
 
 
 def parse_label_value_pairs(
@@ -374,6 +445,12 @@ def parse_label_value_pairs(
         if field_type:
             # Chercher la valeur sur la même ligne (même sans séparateur)
             val_inline = _extract_inline_value(text, field_type)
+            
+            # Validation pour n_ordre
+            if val_inline and field_type == 'n_ordre':
+                if not any(c.isdigit() for c in val_inline):
+                    val_inline = None
+                    
             if val_inline:
                 _add_result(results, field_type, val_inline, line['bbox'], line['conf'])
             else:
@@ -394,7 +471,7 @@ def parse_label_value_pairs(
                     x_dist = c_x1 - l_x2
                     
                     # Cas 1 : À droite sur la même ligne (tolérance Y ±15px)
-                    if -15 < y_dist < 20 and 0 < x_dist < 400:
+                    if -15 < y_dist < 20 and 0 < x_dist < 150:
                         score = x_dist  # Privilégier la proximité en X
                         if score < best_score:
                             best_score = score
@@ -417,6 +494,29 @@ def parse_label_value_pairs(
                         val_txt = best_next['text']
                         if val_txt.startswith(':') or val_txt.startswith('-'):
                             val_txt = val_txt[1:].strip()
+                        
+                        # ── Filtres de pertinence par type de champ ──────────────────
+                        # Pour "commune" : rejeter un texte trop court ou purement numérique
+                        if field_type == 'commune':
+                            alpha_count = sum(c.isalpha() for c in val_txt)
+                            if alpha_count < 3 or len(val_txt.strip()) < 3:
+                                i += 1
+                                continue
+                        
+                        # Pour "n_ordre" : privilégier un texte alphanumérique mixte
+                        # Si le texte ne contient pas au moins 1 lettre ET 1 chiffre,
+                        # on continue à chercher (mais on garde quand même en fallback)
+                        if field_type == 'n_ordre':
+                            has_digit  = any(c.isdigit() for c in val_txt)
+                            # Rejeter les longues phrases parasites (ex: "'ONO avril 1955)")
+                            if len(val_txt) > 20 or "avril" in val_txt.lower() or "mars" in val_txt.lower():
+                                i += 1
+                                continue
+                            if not has_digit:
+                                # un numéro de DA doit absolument contenir un chiffre, sinon c'est du parasite
+                                i += 1
+                                continue
+                        
                         _add_result(results, field_type, val_txt,
                                     best_next['bbox'], best_next['conf'])
         i += 1
@@ -441,6 +541,201 @@ def _add_result(
         return
     existing.append({'valeur': val, 'bbox': bbox, 'conf': conf})
     results[field_type] = existing
+
+
+# ---------------------------------------------------------------------------
+# 3b. EXTRACTION SPATIALE DGFIP (documents modernes DGFIP)
+# ---------------------------------------------------------------------------
+
+def _is_dgfip_document(spans: List[Dict]) -> bool:
+    """
+    Détecte si le document est un extrait cadastral DGFIP récent.
+    Signature : 'DIRECTION GENERALE DES FINANCES PUBLIQUES' en haut de page.
+    """
+    for sp in spans:
+        if DGFIP_SIGNATURE in sp.get("text", "").upper():
+            return True
+    return False
+
+
+def _extract_dgfip_fields(spans: List[Dict], page_w: int) -> Dict[str, Any]:
+    """
+    Extraction dédiée aux documents DGFIP récents.
+
+    Structure du document (page paysage ou portrait) :
+    ┌─────────────────────────────────┬──────────────────────────────────┐
+    │ CARTOUCHE GAUCHE (x < 45% larg) │ CARTOUCHE DROIT (x > 45% larg)  │
+    │  Commune :                       │  Section      : AH               │
+    │  SAINT-PRIVAT (289)              │  Feuille(s)   : 000 AH 01        │
+    │                                  │  Qualité...                      │
+    │  Numéro d'ordre du document      │  Echelle d'origine  : 1/1000     │
+    │  d'arpentage : 891-A             │                                  │
+    │                                  │                                  │
+    │  Document vérifié le 24/11/2025  │                                  │
+    │  Par M.MECHIN Eric               │                                  │
+    └─────────────────────────────────┴──────────────────────────────────┘
+
+    Retourne un dict de champs avec source='dgfip_spatial'.
+    """
+    champs: Dict[str, Any] = {}
+    sep_x = page_w * 0.45  # frontière gauche/droite
+
+    # Trier les spans par position Y (haut → bas)
+    sorted_spans = sorted(spans, key=lambda s: s["bbox"][1])
+
+    # Séparer les spans gauche et droit
+    left_spans  = [s for s in sorted_spans if s["bbox"][0] < sep_x]
+    right_spans = [s for s in sorted_spans if s["bbox"][0] >= sep_x]
+
+    # ── CARTOUCHE GAUCHE ────────────────────────────────────────────────────
+    # Parcourir les spans gauche à la recherche des labels clés
+    i = 0
+    while i < len(left_spans):
+        sp = left_spans[i]
+        txt = sp["text"].strip()
+        txt_lower = txt.lower()
+
+        # 1. Label COMMUNE :
+        if re.match(r'(?i)^commune\s*:', txt_lower):
+            # La commune peut être sur la même ligne après ":" ou sur la ligne suivante
+            val_inline = re.sub(r'(?i)^commune\s*:\s*', '', txt).strip()
+            if not val_inline and i + 1 < len(left_spans):
+                val_inline = left_spans[i + 1]["text"].strip()
+                i += 1
+            if val_inline:
+                champs["commune_brut"] = val_inline
+                champs["commune"] = {
+                    "valeur": val_inline,  # sera normalisé après
+                    "confiance": 0.98,
+                    "methode": "dgfip_spatial",
+                    "brut": val_inline,
+                    "bbox": sp["bbox"],
+                }
+                # Extraire code INSEE si présent : SAINT-PRIVAT (289)
+                m_insee = re.search(r'\((\d{3,5})\)', val_inline)
+                if m_insee:
+                    champs["code_insee"] = m_insee.group(1)
+                    print(f"    [DGFIP] Code INSEE extrait : {m_insee.group(1)}")
+
+        # 2. Label N° d'ordre / d'arpentage :
+        elif re.search(r"(?i)d'arpentage\s*:", txt):
+            # Format : "d'arpentage : 891-A" ou sur la même ligne
+            m_da = re.search(r"(?i)d'arpentage\s*:\s*([\w\-\.]+)", txt)
+            if m_da:
+                champs["n_ordre"] = {
+                    "valeur": m_da.group(1).strip(),
+                    "confiance": 0.98,
+                    "methode": "dgfip_spatial",
+                    "brut": txt,
+                    "bbox": sp["bbox"],
+                }
+                print(f"    [DGFIP] N° d'ordre : {m_da.group(1).strip()}")
+
+        # 3. Label Document vérifié + date :
+        elif re.search(r'(?i)document.{0,10}vérifié|document.{0,10}verifie', txt):
+            m_date = re.search(r'(\d{1,2}/\d{1,2}/\d{4}|\d{4})', txt)
+            if m_date:
+                champs["date"] = {
+                    "valeur": m_date.group(1),
+                    "confiance": 0.95,
+                    "methode": "dgfip_spatial",
+                    "brut": txt,
+                    "bbox": sp["bbox"],
+                }
+                print(f"    [DGFIP] Date : {m_date.group(1)}")
+
+        # 4. Géomètre-expert : "Dressé par NOM" ou "dressé par le Géomètre-Expert NOM"
+        #    UNIQUEMENT les noms de la whitelist → rejet sinon
+        elif re.search(r'(?i)dress[eé]\s+par', txt):
+            # Extraire ce qui suit "dressé par" (en ignorant les titres parasites)
+            m_geo = re.sub(r'(?i)dress[eé]\s+par\s+(?:le\s+)?(?:g[eé]om[eè]tre[\s\-]+expert\s+)?', '', txt).strip()
+            m_geo = re.sub(r'(?i)\s*g[eé]om[eè]tre[\s\-]+expert\s*', ' ', m_geo).strip()
+            if m_geo and len(m_geo) >= 2:
+                # Valider contre la whitelist stricte
+                try:
+                    from plan_classifier import GEOMETRES_CONNUS
+                except ImportError:
+                    GEOMETRES_CONNUS = ["DUPUY", "HARROIS", "RACAT", "SERRET", "CEYTE", "BARRIAL", "ROBERT"]
+                try:
+                    from rapidfuzz import process as rfp, fuzz
+                    result = rfp.extractOne(m_geo.upper(), GEOMETRES_CONNUS, scorer=fuzz.WRatio)
+                    if result and result[1] >= 70:
+                        champs["geometre"] = {
+                            "valeur": result[0],
+                            "confiance": 0.96,
+                            "methode": "dgfip_dresse_par",
+                            "brut": txt,
+                            "bbox": sp["bbox"],
+                        }
+                        print(f"    [DGFIP] Géomètre (dressé par) : {result[0]}")
+                except ImportError:
+                    # Sans rapidfuzz, correspondance exacte
+                    for geo in GEOMETRES_CONNUS:
+                        if geo.lower() in m_geo.lower():
+                            champs["geometre"] = {
+                                "valeur": geo,
+                                "confiance": 0.90,
+                                "methode": "dgfip_dresse_par",
+                                "brut": txt,
+                                "bbox": sp["bbox"],
+                            }
+                            print(f"    [DGFIP] Géomètre (dressé par) : {geo}")
+                            break
+        i += 1
+
+
+    # ── CARTOUCHE DROIT ─────────────────────────────────────────────────────
+    for sp in right_spans:
+        txt = sp["text"].strip()
+
+        # Section : "Section      : AH"
+        m_sec = re.search(r'(?i)section\s*:\s*([A-Z]{1,2})', txt)
+        if m_sec and "section" not in champs:
+            champs["section"] = {
+                "valeur": m_sec.group(1),
+                "confiance": 0.98,
+                "methode": "dgfip_spatial",
+                "brut": txt,
+                "bbox": sp["bbox"],
+            }
+            print(f"    [DGFIP] Section : {m_sec.group(1)}")
+
+        # Feuille(s) : "Feuille(s)   :  000 AH 01"
+        m_feuille = re.search(r'(?i)feuille(?:s)?\s*(?:\(s\))?\s*:\s*(.+)', txt)
+        if m_feuille and "feuille" not in champs:
+            fval = m_feuille.group(1).strip()
+            if fval:
+                champs["feuille"] = {
+                    "valeur": fval,
+                    "confiance": 0.95,
+                    "methode": "dgfip_spatial",
+                    "brut": txt,
+                    "bbox": sp["bbox"],
+                }
+                print(f"    [DGFIP] Feuille(s) : {fval}")
+
+        # Echelle d'origine : "Echelle d'origine  : 1/1000"
+        m_ech = re.search(r"(?i)(?:echelle|échelle)(?:.{0,20})?:\s*(1[/\\]\d+)", txt)
+        if m_ech and "echelle" not in champs:
+            champs["echelle"] = {
+                "valeur": m_ech.group(1).replace('\\', '/'),
+                "confiance": 0.98,
+                "methode": "dgfip_spatial",
+                "brut": txt,
+                "bbox": sp["bbox"],
+            }
+            print(f"    [DGFIP] Echelle : {m_ech.group(1)}")
+
+    return champs
+
+
+def _is_dgfip_boilerplate(text: str) -> bool:
+    """
+    Retourne True si le texte est un texte de formulaire DGFiP à ignorer
+    (ne pas extraire comme propriétaire, signataire, etc.).
+    """
+    text_lower = text.lower()
+    return any(bp in text_lower for bp in _DGFIP_BOILERPLATE)
 
 
 # ---------------------------------------------------------------------------
@@ -519,9 +814,21 @@ def process_modern_plan(
         img_gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(img_gray)
 
         # ── Sélection de la source d'extraction ─────────────────────────────
+        # ── Sélection de la source d'extraction ─────────────────────────────
         page_spans = [s for s in pymupdf_spans if s["page"] == page_num]
 
-        if has_vector_text and len(page_spans) > 3:
+        # Vérifier si les spans vectoriels contiennent les infos clés
+        text_vec = " ".join([s["text"] for s in page_spans]).lower()
+        is_valid_vector = has_vector_text and len(page_spans) > 3 and any(k in text_vec for k in ["commune", "d'ordre", "section", "dossier", "parcelle"])
+
+        raw_detections = []
+        # ── Détection DGFIP : extraction spécifique si document DGFIP détecté ──
+        # Fonctionne AUSSI sur les scans via les résultats OCR (EasyOCR à venir)
+        is_dgfip = _is_dgfip_document(page_spans if is_valid_vector else [])
+        if is_dgfip:
+            print(f"    [ModernPlan] ✅ Document DGFIP détecté (vectoriel) — extraction cartouche spatiale")
+
+        if is_valid_vector:
             # Convertir les spans en DataFrame compatible avec parse_label_value_pairs
             tess_df = _spans_to_tess_df(page_spans)
             raw_detections = [
@@ -531,6 +838,11 @@ def process_modern_plan(
             ]
             print(f"    [ModernPlan] Extraction PyMuPDF : {len(page_spans)} lignes")
         else:
+            if has_vector_text and len(page_spans) > 3:
+                print("    [ModernPlan] PDF partiellement vectoriel (mots-clés absents), passage à l'OCR...")
+            else:
+                print("    [ModernPlan] Pas de texte vectoriel suffisant, passage à l'OCR...")
+            
             # Fallback EasyOCR
             best_df = _run_ocr_fallback(img_gray)
             if best_df is not None and not best_df.empty:
@@ -538,10 +850,9 @@ def process_modern_plan(
                 print(f"    [ModernPlan] Fallback EasyOCR OK : {len(tess_df)} éléments")
             else:
                 tess_df = pd.DataFrame()
-                print("    [ModernPlan] Échec extraction vectorielle ET OCR (image illisible ou OCR manquant)")
+                print("    [ModernPlan] Échec extraction vectorielle ET OCR")
 
-            raw_detections = []
-            if tess_df is not None and not (hasattr(tess_df, 'empty') and tess_df.empty):
+            if not tess_df.empty:
                 try:
                     df_v = tess_df.copy()
                     df_v = df_v[df_v['conf'].apply(lambda x: str(x).lstrip('-').isdigit())]
@@ -559,49 +870,280 @@ def process_modern_plan(
                             })
                 except Exception:
                     pass
+                # ── Détection DGFIP via OCR pour les scans ────────────────────────
+                if not is_dgfip:
+                    ocr_texts = [str(row.get('text', '')) for _, row in df_v.iterrows()]
+                    combined = " ".join(ocr_texts).upper()
+                    if DGFIP_SIGNATURE.replace(' ', '') in combined.replace(' ', '') or \
+                       "FINANCES PUBLIQUES" in combined or "DIRECTION GENERALE" in combined:
+                        is_dgfip = True
+                        print(f"    [ModernPlan] ✅ Document DGFIP détecté via OCR (scan) — extraction DGFIP activée")
 
-        # ── Extraction des paires label/valeur ──────────────────────────────
-        raw_pairs = parse_label_value_pairs(tess_df, img_gray.shape[0])
-
-        # ── Validation et construction des champs ────────────────────────────
+        text_lines = []
+        if tess_df is not None and not (hasattr(tess_df, 'empty') and tess_df.empty):
+            df_t = tess_df.sort_values(by=['top', 'left'])
+            text_lines = df_t['text'].dropna().astype(str).tolist()
+            
+        full_text = "\n".join(text_lines)
         champs: Dict[str, Any] = {}
-        for field_type, candidates in raw_pairs.items():
-            if not candidates:
+
+        # ── PRIORITÉ 0 : Extraction DGFIP (s'applique vectoriel ET scan) ───────────────
+        if is_dgfip:
+            # Choisir la source de spans selon disponibilité
+            if is_valid_vector:
+                spans_dgfip = page_spans
+            else:
+                # Convertir les raw_detections OCR en spans factices pour réutiliser _extract_dgfip_fields
+                spans_dgfip = [
+                    {"text": d["texte"], "bbox": d["bbox"], "conf": 90, "page": page_num}
+                    for d in raw_detections if d.get("texte")
+                ]
+            dgfip_champs = _extract_dgfip_fields(spans_dgfip, img_bgr.shape[1])
+            for field, val in dgfip_champs.items():
+                if field.startswith('_') or field == 'commune_brut':
+                    continue
+                champs[field] = val
+
+            # Normaliser la commune DGFiP : retirer le code INSEE, puis fuzzy-matcher
+            if "commune" in champs:
+                raw_commune = champs["commune"]["valeur"]
+                # Retirer le code INSEE : "SAINT-PRIVAT (289)" → "SAINT-PRIVAT"
+                commune_clean = re.sub(r'\s*\(\d{3,5}\)\s*$', '', raw_commune).strip()
+                # Normalisation via corrector si disponible
+                if corrector:
+                    c_res = corrector.correct(commune_clean, "commune")
+                    commune_normalisee = c_res.get("valeur", commune_clean)
+                    if commune_normalisee and commune_normalisee != "Non identifiée":
+                        champs["commune"]["valeur"] = commune_normalisee
+                        champs["commune"]["confiance"] = c_res.get("confiance", 0.95)
+                        print(f"    [DGFIP] Commune normalisée : {raw_commune!r} → {commune_normalisee!r}")
+                    else:
+                        champs["commune"]["valeur"] = commune_clean
+                else:
+                    champs["commune"]["valeur"] = commune_clean
+
+        regex_results = parse_label_value_pairs(tess_df, img_gray.shape[0] if img_gray is not None else 2000)
+        for field, vals in regex_results.items():
+            # Si champ déjà trouvé par DGFIP spatial → ne pas écraser (sauf si confiance plus haute)
+            if field in champs and champs[field].get("confiance", 0) >= 0.95:
                 continue
-            best = max(candidates, key=lambda c: c['conf'])
-            val_brut = best['valeur']
 
-            val_corrigee = val_brut
-            if learner:
-                appris = learner.lookup(field_type, val_brut)
-                if appris:
-                    val_corrigee = appris
-                    print(f"    [ModernPlan] Appris [{field_type}]: '{val_brut}' → '{appris}'")
+            valid_vals = [str(v.get('valeur', '')).strip() for v in vals if str(v.get('valeur', '')).strip()]
+            if not valid_vals: continue
 
+            if field in ['n_ordre', 'date']:
+                with_digits = [v for v in valid_vals if re.search(r'\d', v)]
+                if with_digits:
+                    valid_vals = with_digits
+
+            # ── FILTRE ECHELLE : accepter uniquement le format 1/XXXX ────────
+            if field == 'echelle':
+                echelle_valides = [v for v in valid_vals if re.search(r'^1\s*/\s*\d{3,6}$', v.strip())]
+                if not echelle_valides:
+                    # Chercher dans le texte brut si le parseur a pris quelque chose d'incorrect
+                    echelle_valides = []
+                    for v_raw in valid_vals:
+                        m_ech = re.search(r'1\s*/\s*(\d{3,6})', v_raw)
+                        if m_ech:
+                            echelle_valides.append(f"1/{m_ech.group(1)}")
+                if not echelle_valides:
+                    continue  # Ignorer si pas de format 1/XXXX valide
+                valid_vals = echelle_valides
+
+            # ── FILTRE SECTION : doit être 1-2 lettres uniquement (ex: A, AB, AH) ─────
+            if field == 'section':
+                valid_sections = [v for v in valid_vals
+                                  if re.match(r'^[A-Z]{1,2}$', v.strip().upper())]
+                if not valid_sections:
+                    continue  # Rejeter '0', 'Feuille(s)', etc.
+                valid_vals = valid_sections
+
+            # ── FILTRE BOILERPLATE DGFIP ─────────────────────────────────────
+            if is_dgfip and field in ('proprietaires_nouveaux', 'proprietaires_anciens', 'signataires'):
+                valid_vals = [v for v in valid_vals if not _is_dgfip_boilerplate(v)]
+                if not valid_vals:
+                    continue
+
+            if field in ['parcelles', 'proprietaires_anciens', 'proprietaires_nouveaux', 'signataires']:
+                val_str = " / ".join(valid_vals)
+            else:
+                val_str = valid_vals[0]
+
+            champs[field] = {
+                "valeur": val_str,
+                "confiance": 1.0,
+                "methode": "regex_spatiale",
+                "brut": val_str,
+                "bbox": vals[0].get('bbox', []) if vals else []
+            }
+            print(f"    [ModernPlan] {field} récupéré via structure/regex : {val_str}")
+
+
+        # ── Palier 1 : Recherche globale du Géomètre dans tout le texte (si non trouvé) ──
+        if "geometre" not in champs and is_dgfip:
+            try:
+                from plan_classifier import GEOMETRES_CONNUS
+            except ImportError:
+                GEOMETRES_CONNUS = ["DUPUY", "HARROIS", "RACAT", "SERRET", "CEYTE", "BARRIAL", "ROBERT"]
+            
+            # Recherche exacte
+            found_geo = None
+            for geo in GEOMETRES_CONNUS:
+                if geo.lower() in full_text.lower():
+                    found_geo = geo
+                    break
+            
+            # Recherche floue si pas de correspondance exacte
+            if not found_geo:
+                try:
+                    from rapidfuzz import process as rfp, fuzz
+                    # On découpe le texte en blocs de 2-3 mots pour chercher le nom
+                    words = full_text.replace('\n', ' ').split()
+                    chunks = [" ".join(words[i:i+2]) for i in range(len(words)-1)] + [" ".join(words[i:i+3]) for i in range(len(words)-2)]
+                    
+                    best_match = None
+                    best_score = 0
+                    for chunk in chunks:
+                        res = rfp.extractOne(chunk.upper(), GEOMETRES_CONNUS, scorer=fuzz.token_set_ratio)
+                        if res and res[1] > best_score:
+                            best_score = res[1]
+                            best_match = res[0]
+                    
+                    if best_match and best_score >= 85:
+                        found_geo = best_match
+                except ImportError:
+                    pass
+
+            if found_geo:
+                champs["geometre"] = {
+                    "valeur": found_geo,
+                    "confiance": 0.85,
+                    "methode": "dgfip_global_search",
+                    "brut": found_geo,
+                    "bbox": []
+                }
+                print(f"    [DGFIP] Géomètre trouvé par recherche globale : {found_geo}")
+
+        # ── Palier 2 : Recherche explicite du label 'commune' par regex (si non trouvé) ──
+        if "commune" not in champs:
+            commune_from_ocr = None
+            from rapidfuzz import process as rfp, fuzz
+            m_comm = re.search(r'(?i)commune\s*(?:de\s*)?(?::|\-)?\s*([A-Za-zÀ-ÿ0-9\-\'\s\(\)]{3,45}?)(?:\n|section|feuille|date|echelle|dossier|num[eé]ro|n[o°]|$)', full_text)
+            if m_comm:
+                val_brute = m_comm.group(1).strip()
+                val_brute = re.split(r'(?i)lieu[ \-]dit|proprietaire|echelle', val_brute)[0].strip()
+                if len(val_brute) >= 3:
+                    noms_officiels = [e['officiel'] for e in commune_db]
+                    best = rfp.extractOne(val_brute, noms_officiels, scorer=fuzz.token_set_ratio)
+                    if best and best[1] >= 80:
+                        commune_from_ocr = best[0]
+                    else:
+                        if len(val_brute) >= 5:
+                            commune_from_ocr = val_brute
+            if commune_from_ocr:
+                print(f"  [ModernPlan] Palier 1 OCR : Commune trouvée dans le texte : '{commune_from_ocr}'")
+                champs["commune"] = {
+                    "valeur": commune_from_ocr,
+                    "confiance": 0.9,
+                    "methode": "ocr_brut_exact",
+                    "brut": commune_from_ocr,
+                    "bbox": [0,0,0,0]
+                }
+
+        # ── Extraction des parcelles par Colorimétrie (Rouge/Vert) ────────────────
+        try:
+            from color_ocr_engine import extract_color_parcels
+            print("  [ModernPlan] Extraction des parcelles par couleur (rouge/vert)...")
+            color_res = extract_color_parcels(img_bgr)
+            
+            if color_res["nouvelles_parcelles"]:
+                champs["nouvelles_parcelles"] = {
+                    "valeur": ", ".join([p["valeur"] for p in color_res["nouvelles_parcelles"]]),
+                    "confiance": 0.95,
+                    "methode": "couleur_rouge",
+                    "brut": str(color_res["nouvelles_parcelles"]),
+                    "bbox": color_res["nouvelles_parcelles"][0]["bbox"] if color_res["nouvelles_parcelles"] else [0,0,0,0]
+                }
+            if color_res["anciennes_parcelles"]:
+                champs["anciennes_parcelles"] = {
+                    "valeur": ", ".join([p["valeur"] for p in color_res["anciennes_parcelles"]]),
+                    "confiance": 0.95,
+                    "methode": "couleur_vert",
+                    "brut": str(color_res["anciennes_parcelles"]),
+                    "bbox": color_res["anciennes_parcelles"][0]["bbox"] if color_res["anciennes_parcelles"] else [0,0,0,0]
+                }
+        except Exception as e:
+            print(f"  [ModernPlan] Erreur lors de l'extraction couleur : {e}")
+
+        # ── Extraction par LLM Textuel (Fallback uniquement) ────────────────────────
+        expected_fields = ["commune", "section", "n_ordre", "n_dossier", "geometre", "date", "proprietaires_anciens", "proprietaires_nouveaux", "parcelles", "echelle"]
+        missing_fields = [f for f in expected_fields if f not in champs]
+        
+        if missing_fields:
+            print(f"  [ModernPlan] Envoi au LLM pour champs manquants: {missing_fields}")
+            prompt = f"""Tu es un expert en extraction de données cadastrales. 
+Voici le texte brut OCR d'un plan cadastral moderne.
+Extrais UNIQUEMENT les informations suivantes sous forme d'objet JSON strict. Si non trouvé, met une chaine vide "".
+Champs attendus : {', '.join([f'"{f}"' for f in missing_fields])}.
+Texte OCR :
+---
+{full_text}
+---
+Réponds UNIQUEMENT par le JSON."""
+            
+            payload = {"model": "llava", "prompt": prompt, "format": "json", "stream": False, "options": {"temperature": 0.0, "num_predict": 512, "seed": 42}}
+            os.makedirs("outputs", exist_ok=True)
+            payload_path = os.path.join(os.getcwd(), "outputs", "llm_text_payload.json")
+            with open(payload_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f)
+            win_payload_path = payload_path.replace("/mnt/c/", "C:\\\\").replace("/", "\\\\")
+            cmd = ["curl.exe", "-s", "-X", "POST", "http://127.0.0.1:11434/api/generate", "-H", "Content-Type: application/json", "-d", f"@{win_payload_path}"]
+            
+            try:
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                if res.returncode == 0 and res.stdout.strip():
+                    try:
+                        ollama_json = json.loads(res.stdout)
+                        raw = ollama_json.get("response", "").strip()
+                        
+                        # Nettoyage des éventuelles balises markdown générées par l'IA
+                        raw = re.sub(r'^```json\s*', '', raw, flags=re.IGNORECASE)
+                        raw = re.sub(r'^```\s*', '', raw)
+                        raw = re.sub(r'\s*```$', '', raw)
+                        
+                        m_obj = re.search(r'\{.*\}', raw, re.DOTALL)
+                        if m_obj:
+                            llm_data = json.loads(m_obj.group(0))
+                            for field_type, v in llm_data.items():
+                                if field_type not in missing_fields: continue
+                                if not v or v == "None" or v == "null": continue
+                                
+                                val_finale = " / ".join(map(str, v)) if isinstance(v, list) else str(v)
+                                champs[field_type] = {
+                                    "valeur": val_finale,
+                                    "confiance": 0.50,
+                                    "methode": "llm_textuel",
+                                    "brut": str(v),
+                                    "bbox": [0,0,0,0]
+                                }
+                                print(f"    [ModernPlan] {field_type} récupéré via LLM : {val_finale}")
+                    except json.JSONDecodeError:
+                        print("    [ModernPlan] Échec de parsing du JSON LLM.")
+            except Exception as e:
+                print(f"  [ModernPlan] Erreur LLM Textuel: {e}")
+            finally:
+                if os.path.exists(payload_path): os.remove(payload_path)
+
+        # ── Nettoyage final ───────────────────────────────
+        for field_type, data in champs.items():
             if corrector:
-                correction = corrector.correct(val_corrigee, field_type)
-                valeur_finale = correction.get('valeur', val_corrigee)
-                confiance     = correction.get('confiance', best['conf'] / 100.0)
-                methode       = correction.get('methode', 'pymupdf')
-            else:
-                valeur_finale = val_corrigee
-                confiance     = best['conf'] / 100.0
-                methode       = 'pymupdf' if has_vector_text else 'tesseract'
-
-            if field_type in ('proprietaires_anciens', 'proprietaires_nouveaux',
-                              'parcelles', 'signataires'):
-                champs[field_type] = {
-                    'valeurs': [c['valeur'] for c in candidates],
-                    'valeur': valeur_finale, 'confiance': confiance,
-                    'methode': methode, 'brut': val_brut, 'bbox': best['bbox'],
-                }
-            else:
-                champs[field_type] = {
-                    'valeur': valeur_finale, 'confiance': confiance,
-                    'methode': methode, 'brut': val_brut, 'bbox': best['bbox'],
-                }
-            print(f"    [ModernPlan] {field_type}: '{valeur_finale}' "
-                  f"(conf={confiance:.0%}, méth={methode})")
+                if "valeurs" in data or " / " in data["valeur"]:
+                    vals = data["valeur"].split(" / ")
+                    val_corr = [corrector.correct(item.strip(), field_type).get('valeur', item.strip()) for item in vals]
+                    data["valeur"] = " / ".join(filter(None, val_corr))
+                else:
+                    c_res = corrector.correct(data["valeur"], field_type)
+                    data["valeur"] = c_res.get("valeur", data["valeur"])
 
         if not champs:
             print(f"  [ModernPlan] Page {page_num} : aucun champ extrait.")
@@ -618,6 +1160,31 @@ def process_modern_plan(
             
         # Retirer _raw_detections pour ne pas polluer les JSON
         champs.pop('_raw_detections', None)
+
+        # ── Palier 3 : Fallback final depuis le nom de fichier ────────────────────
+        fichier_base = os.path.basename(file_path)
+        m_da = re.search(r'(?:^\d{3}[_\-])(\d{3,5}[_\-][A-Za-z])', fichier_base)
+        if m_da and "n_ordre" not in champs:
+            da_val = m_da.group(1).replace('_', '-')
+            champs["n_ordre"] = {
+                "valeur": da_val,
+                "confiance": 0.95,
+                "methode": "filename_fallback",
+                "brut": f"[filename:{fichier_base}]",
+                "bbox": [0,0,0,0]
+            }
+            print(f"  [ModernPlan] Fallback nom de fichier: DA récupéré '{da_val}'")
+            
+        m_geof = re.search(r'geofoncier_dmpc_\d{5}_[0-9a-z]{1,3}_(\d{1,5})', fichier_base.lower())
+        if m_geof and "n_ordre" not in champs:
+            champs["n_ordre"] = {
+                "valeur": m_geof.group(1),
+                "confiance": 0.95,
+                "methode": "filename_fallback",
+                "brut": f"[filename:{fichier_base}]",
+                "bbox": [0,0,0,0]
+            }
+            print(f"  [ModernPlan] Fallback nom de fichier: DA récupéré '{m_geof.group(1)}'")
 
         all_pages.append({
             'page': page_num,
@@ -711,6 +1278,8 @@ def export_modern_plan_to_csv(
             # Champs spécifiques plans modernes
             'Section_Cadastrale': _get('section'),
             'Parcelles': _get_list('parcelles'),
+            'Nouvelles_Parcelles': _get_list('nouvelles_parcelles'),
+            'Anciennes_Parcelles': _get_list('anciennes_parcelles'),
             'Proprietaires_Anciens': _get_list('proprietaires_anciens'),
             'Proprietaires_Nouveaux': _get_list('proprietaires_nouveaux'),
             'Signataires': _get_list('signataires'),
@@ -783,11 +1352,8 @@ def is_modern_plan(file_path: str) -> bool:
         doc = fitz.open(file_path)
         n_pages = doc.page_count
         
-        # Heuristique 1 : Taille par page
-        size_per_page = size_mb / max(n_pages, 1)
-        if size_per_page < 0.5:
-            doc.close()
-            return True
+        # La taille seule ne suffit pas, car les vieux plans très compressés font < 0.5 Mo/page.
+        # On va vérifier le contenu vectoriel ou la présence de mots-clés typiques.
             
         # Heuristique 2 : Contenu texte rapide (vectoriel)
         page1_text = doc[0].get_text("text").upper()
