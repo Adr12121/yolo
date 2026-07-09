@@ -281,18 +281,7 @@ with st.sidebar:
     st.progress(n_val / max(len(df),1))
     st.caption(f"**{n_val} / {len(df)}** documents validés")
     
-    # Bouton de nettoyage Outputs (Point 4)
-    if st.button("Nettoyer les images déjà validées", help="Supprime les images annotées des documents déjà validés pour libérer de l'espace disque."):
-        deleted_count = 0
-        for idx, r in df.iterrows():
-            if r["Confirmation_Status"] == "Validé par l'humain":
-                base_n = os.path.basename(fichier_choisi).replace("_plan_resultats.csv","").replace("_resultats.csv","")
-                for img_path in glob.glob(os.path.join(OUTPUTS_DIR, f"{base_n}*_annote.jpg")):
-                    try:
-                        os.remove(img_path)
-                        deleted_count += 1
-                    except: pass
-        st.success(f"Opération terminée. {deleted_count} fichiers supprimés.")
+    # (Bouton 'Nettoyer les images' supprimé car causait la perte d'images non-validées)
 
     plan_type = "GENERIC"
     for c in ["Type_Plan","Type_Document"]:
@@ -346,7 +335,7 @@ champs_consolidated = _json if _json else {}
 row = df[df[id_col]==page_id].iloc[0]
 base_page_num = int(row.get("Page",1))
 
-@st.cache_data
+@st.cache_data(max_entries=5)
 def load_img(base, pn, fichier_json=""):
     pdf = fichier_json or os.path.join(INPUTS_DIR, base+".pdf")
     if os.path.exists(pdf):
@@ -365,7 +354,7 @@ def load_img(base, pn, fichier_json=""):
         if os.path.exists(p): return Image.open(p).convert("RGB")
     return None
 
-@st.cache_data
+@st.cache_data(max_entries=5)
 def get_crop(base, pn, zone, fichier_json=""):
     if len(zone) != 4 or sum(zone) == 0: return None
     img = load_img(base, pn, fichier_json)
@@ -617,7 +606,8 @@ def on_field_change(file_path, doc_id, col_name, wkey):
                 _rc_annee = 2000 + _yr if _yr <= 30 else (1900 + _yr if _yr < 100 else _yr)
                 if f"rc_annee_{doc_id}" in st.session_state: st.session_state[f"rc_annee_{doc_id}"] = str(_rc_annee)
             
-        temp_df.to_csv(file_path, sep=";", index=False, encoding="utf-8-sig")
+        # temp_df.to_csv retiré ici pour stopper le spam I/O (réécritures disques intempestives).
+        # La sauvegarde CSV ne se fait désormais qu'au clic sur "Enregistrer & Suivant".
 
 with col_form:
     st.markdown('<div class="form-container">', unsafe_allow_html=True)
