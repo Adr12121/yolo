@@ -462,7 +462,13 @@ def get_parcel_geometry(code_insee: str, section: str, numero) -> dict | None:
     if not section_fmt.replace('0', ''):
         # Section entièrement numérique après sanitisation (ex: '0A' -> OK, '00' -> suspect)
         pass  # On garde et on laisse l'API décider
-    numero_fmt  = str(numero).zfill(4)
+    # Formatage du numéro de parcelle :
+    # - si purement numérique (ex: '14') → zfill(4) → '0014'
+    # - si alphanumérique (ex: 'A1', 'B12') → majuscule, pas de zfill
+    #   car l'API IGN attend 'A1' et non '00A1'
+    _num_str = str(numero).strip().upper()
+    numero_fmt = _num_str.zfill(4) if _num_str.isdigit() else _num_str
+
 
     url = (
         f"https://apicarto.ign.fr/api/cadastre/parcelle"

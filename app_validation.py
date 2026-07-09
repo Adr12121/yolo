@@ -246,13 +246,29 @@ def load_csv(p):
     except: return pd.read_csv(p, sep=";", encoding="utf-8")
 
 df = load_csv(fichier_choisi)
-base_name = os.path.basename(fichier_choisi).replace("_plan_resultats.csv","").replace("_resultats.csv","")
 
 if "Confirmation_Status" not in df.columns: df["Confirmation_Status"] = "À valider"
 if "Code_INSEE" not in df.columns: df["Code_INSEE"] = ""
 
 DONE = ["Validé par l'humain","Corrigé automatiquement","Ignoré (Vide)"]
 id_col = "ID" if "ID" in df.columns else "ID_Ligne"
+
+# ── Fusion des éditions en attente (buffer session) dans df ─────────────────
+# on_field_change() stocke les corrections dans st.session_state["pending_edits"]
+# au lieu d'écrire sur le disque. Ici on applique ces corrections dans le df
+# en mémoire pour que l'UI affiche toujours la valeur corrigée, même avant
+# d'avoir cliqué sur "Enregistrer & Suivant".
+_pending = st.session_state.get("pending_edits", {})
+for _pid, _cols in _pending.items():
+    _idxs = df[df[id_col] == _pid].index
+    if len(_idxs) > 0:
+        _i = _idxs[0]
+        for _col, _val in _cols.items():
+            if _col not in df.columns:
+                df[_col] = ""
+            if not pd.api.types.is_object_dtype(df[_col]):
+                df[_col] = df[_col].astype(object)
+            df.at[_i, _col] = _val
 
 # Couleurs pour le rendu visuel
 COLORS = {
@@ -532,82 +548,91 @@ def _learn_correction(csv_col, old_val, new_val):
             json.dump(db, f, indent=2, ensure_ascii=False)
 
 def on_field_change(file_path, doc_id, col_name, wkey):
+    """
+    Callback sur modification d'un champ.
+    Ne lit PLUS le CSV depuis le disque (stoppage du spam I/O).
+    Stocke les modifications dans st.session_state['pending_edits'] :
+    un buffer dict {doc_id: {col_name: val}} persistent jusqu'au
+    clic "Enregistrer & Suivant" qui lui seul écrit sur le disque.
+    """
     new_val = st.session_state.get(wkey, "")
-    try:
-        temp_df = pd.read_csv(file_path, sep=";", encoding="utf-8-sig")
-    except:
-        temp_df = pd.read_csv(file_path, sep=";", encoding="utf-8")
-        
-    if col_name not in temp_df.columns: temp_df[col_name] = ""
-    if not pd.api.types.is_object_dtype(temp_df[col_name]):
-        temp_df[col_name] = temp_df[col_name].astype(object)
-        
-    id_col_temp = "ID" if "ID" in temp_df.columns else "ID_Ligne"
-    idxs = temp_df[temp_df[id_col_temp] == doc_id].index
-    if len(idxs) > 0:
-        idx = idxs[0]
-        old_val = temp_df.at[idx, col_name]
-        
-        if pd.notna(old_val) and str(old_val).strip() != str(new_val).strip() and str(old_val).strip() != "":
-            _learn_correction(col_name, old_val, new_val)
-            
-        final_val = new_val
-        if col_name == "Section" and new_val:
-            final_val = format_section(new_val)
-        elif col_name == "Date" and new_val:
-            final_val = format_date(new_val)
-        elif col_name == "Echelle" and new_val:
-            final_val = format_echelle(new_val)
-        elif col_name in ["Parcelles", "Anciennes_Parcelles", "Nouvelles_Parcelles"] and new_val:
-            final_val = clean_parcelles(new_val)
-        elif col_name == "Commune" and new_val:
-            m_nom, m_score, m_code = match_commune(new_val)
-            if m_score >= 55:
-                final_val = m_nom
-                if "Code_INSEE" not in temp_df.columns:
-                    temp_df["Code_INSEE"] = ""
-                temp_df.at[idx, "Code_INSEE"] = m_code
-                
-        temp_df.at[idx, col_name] = final_val
-        st.session_state[wkey] = final_val
-        
-        # Mettre à jour les champs Geofoncier (Répertoire)
-        if col_name == "Commune":
-            if f"lu_commune_{doc_id}" in st.session_state: st.session_state[f"lu_commune_{doc_id}"] = final_val
-            if f"rc_commune_{doc_id}" in st.session_state: st.session_state[f"rc_commune_{doc_id}"] = final_val
-        elif col_name == "Section":
-            if f"lu_section_{doc_id}" in st.session_state: st.session_state[f"lu_section_{doc_id}"] = final_val
-            if f"rc_section_{doc_id}" in st.session_state: st.session_state[f"rc_section_{doc_id}"] = final_val
-        elif col_name in ["Parcelles", "Anciennes_Parcelles", "Nouvelles_Parcelles"]:
-            _p_anc = str(temp_df.at[idx, "Anciennes_Parcelles"] if pd.notna(temp_df.at[idx, "Anciennes_Parcelles"]) else "").strip()
-            _p_nou = str(temp_df.at[idx, "Nouvelles_Parcelles"] if pd.notna(temp_df.at[idx, "Nouvelles_Parcelles"]) else "").strip()
-            _p_all = str(temp_df.at[idx, "Parcelles"] if pd.notna(temp_df.at[idx, "Parcelles"]) else "").strip()
-            _parcs_concat = f"{_p_anc} {_p_nou} {_p_all}"
-            try:
-                from repertoire_lookup import clean_parcelles_for_lookup
-                _p_propres = clean_parcelles_for_lookup(_parcs_concat)
-                if f"lu_parcelle_{doc_id}" in st.session_state: st.session_state[f"lu_parcelle_{doc_id}"] = ", ".join(str(p) for p in _p_propres[:5]) if _p_propres else ""
-            except: pass
-            try:
-                from repertoire_racat_ceyte import clean_parcelles_for_lookup_rc
-                _p_propres_rc = clean_parcelles_for_lookup_rc(_parcs_concat)
-                if f"rc_parcelles_{doc_id}" in st.session_state: st.session_state[f"rc_parcelles_{doc_id}"] = ", ".join(str(p) for p in _p_propres_rc[:5]) if _p_propres_rc else ""
-            except: pass
-        elif col_name == "Date":
-            try:
-                from repertoire_lookup import extract_year_from_date
-                _annee = extract_year_from_date(final_val)
-                if f"lu_annee_{doc_id}" in st.session_state: st.session_state[f"lu_annee_{doc_id}"] = str(_annee) if _annee else ""
-            except: pass
-            import re
-            _m_date = re.search(r"(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})", str(final_val))
-            if _m_date:
-                _yr = int(_m_date.group(3))
-                _rc_annee = 2000 + _yr if _yr <= 30 else (1900 + _yr if _yr < 100 else _yr)
-                if f"rc_annee_{doc_id}" in st.session_state: st.session_state[f"rc_annee_{doc_id}"] = str(_rc_annee)
-            
-        # temp_df.to_csv retiré ici pour stopper le spam I/O (réécritures disques intempestives).
-        # La sauvegarde CSV ne se fait désormais qu'au clic sur "Enregistrer & Suivant".
+
+    # Initialisation du buffer si absent
+    if "pending_edits" not in st.session_state:
+        st.session_state["pending_edits"] = {}
+    if doc_id not in st.session_state["pending_edits"]:
+        st.session_state["pending_edits"][doc_id] = {}
+
+    # Récupération de l'ancienne valeur depuis le buffer ou depuis le df en cache disque
+    # (via les pending_edits écrites lors du dernier rerun, sans relire le fichier)
+    old_val = st.session_state["pending_edits"][doc_id].get(col_name, "")
+
+    # Apprentissage des corrections (mémorise ancienne -> nouvelle valeur OCR)
+    if old_val and str(old_val).strip() and str(old_val).strip() != str(new_val).strip():
+        _learn_correction(col_name, old_val, new_val)
+
+    # Normalisation métier de la valeur avant stockage
+    final_val = new_val
+    if col_name == "Section" and new_val:
+        final_val = format_section(new_val)
+    elif col_name == "Date" and new_val:
+        final_val = format_date(new_val)
+    elif col_name == "Echelle" and new_val:
+        final_val = format_echelle(new_val)
+    elif col_name in ["Parcelles", "Anciennes_Parcelles", "Nouvelles_Parcelles"] and new_val:
+        final_val = clean_parcelles(new_val)
+    elif col_name == "Commune" and new_val:
+        m_nom, m_score, m_code = match_commune(new_val)
+        if m_score >= 55:
+            final_val = m_nom
+            # Stocker aussi le Code_INSEE résolu dans le même buffer
+            st.session_state["pending_edits"][doc_id]["Code_INSEE"] = m_code
+
+    # Stocker la valeur normalisée dans le buffer et dans le widget
+    st.session_state["pending_edits"][doc_id][col_name] = final_val
+    st.session_state[wkey] = final_val
+
+    # Synchronisation des clés Geofoncier (répertoire et carte) depuis le buffer
+    if col_name == "Commune":
+        if f"lu_commune_{doc_id}" in st.session_state: st.session_state[f"lu_commune_{doc_id}"] = final_val
+        if f"rc_commune_{doc_id}" in st.session_state: st.session_state[f"rc_commune_{doc_id}"] = final_val
+    elif col_name == "Section":
+        if f"lu_section_{doc_id}" in st.session_state: st.session_state[f"lu_section_{doc_id}"] = final_val
+        if f"rc_section_{doc_id}" in st.session_state: st.session_state[f"rc_section_{doc_id}"] = final_val
+    elif col_name in ["Parcelles", "Anciennes_Parcelles", "Nouvelles_Parcelles"]:
+        # Concaténation depuis les pending_edits pour construire la liste complète
+        _buf = st.session_state["pending_edits"][doc_id]
+        _p_anc = str(_buf.get("Anciennes_Parcelles", "") or "").strip()
+        _p_nou = str(_buf.get("Nouvelles_Parcelles", "") or "").strip()
+        _p_all = str(_buf.get("Parcelles", "") or "").strip()
+        _parcs_concat = f"{_p_anc} {_p_nou} {_p_all}"
+        try:
+            from repertoire_lookup import clean_parcelles_for_lookup
+            _p_propres = clean_parcelles_for_lookup(_parcs_concat)
+            if f"lu_parcelle_{doc_id}" in st.session_state:
+                st.session_state[f"lu_parcelle_{doc_id}"] = ", ".join(str(p) for p in _p_propres[:5]) if _p_propres else ""
+        except: pass
+        try:
+            from repertoire_racat_ceyte import clean_parcelles_for_lookup_rc
+            _p_propres_rc = clean_parcelles_for_lookup_rc(_parcs_concat)
+            if f"rc_parcelles_{doc_id}" in st.session_state:
+                st.session_state[f"rc_parcelles_{doc_id}"] = ", ".join(str(p) for p in _p_propres_rc[:5]) if _p_propres_rc else ""
+        except: pass
+    elif col_name == "Date":
+        try:
+            from repertoire_lookup import extract_year_from_date
+            _annee = extract_year_from_date(final_val)
+            if f"lu_annee_{doc_id}" in st.session_state:
+                st.session_state[f"lu_annee_{doc_id}"] = str(_annee) if _annee else ""
+        except: pass
+        import re
+        _m_date = re.search(r"(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})", str(final_val))
+        if _m_date:
+            _yr = int(_m_date.group(3))
+            _rc_annee = 2000 + _yr if _yr <= 30 else (1900 + _yr if _yr < 100 else _yr)
+            if f"rc_annee_{doc_id}" in st.session_state:
+                st.session_state[f"rc_annee_{doc_id}"] = str(_rc_annee)
+
 
 with col_form:
     st.markdown('<div class="form-container">', unsafe_allow_html=True)
@@ -800,6 +825,11 @@ with col_form:
                     st.warning(f"Commune '{commune_saisie}' non reconnue (score {m_score}%). Vérifiez l'orthographe avant de sauvegarder.")
             df.to_csv(fichier_choisi, sep=";", index=False, encoding="utf-8-sig")
             
+            # Purge du buffer pending_edits pour ce document (déjà persisté sur disque)
+            if "pending_edits" in st.session_state and page_id in st.session_state["pending_edits"]:
+                del st.session_state["pending_edits"][page_id]
+
+
             # Nettoyer les clés de session Geofoncier pour forcer la mise à jour si on reste sur la même vue
             _keys_to_del = [
                 f"lu_commune_{page_id}", f"lu_section_{page_id}", f"lu_parcelle_{page_id}", f"lu_annee_{page_id}",
