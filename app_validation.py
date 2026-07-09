@@ -1616,9 +1616,9 @@ elif _geometre_val in _GEOMETRES_API_DIRECT:
             _ad_statut = st.selectbox("Statut", ["Achevé", "Indéterminé", "En cours"],
                                       key=f"ad_statut_{page_id}")
 
-        _ad_can = bool(_ad_ref and _ad_op and _ad_isbn if (_ad_isbn := _ad_insee) else _ad_ref and _ad_op)
+        _ad_can = bool(_ad_ref and _ad_op)
 
-        if not _ad_isbn:
+        if not _ad_insee:
             st.warning(f"Code INSEE introuvable pour '{_ad_commune}' — vérifiez la commune.")
 
         if st.button("Confirmer cette référence", type="primary", disabled=not _ad_ref, key=f"ad_btn_conf_{page_id}"):
@@ -1717,14 +1717,22 @@ if _confirmed:
     # Récupération préliminaire des infos pour la carte
     # Fallback universel sur les champs du CSV si les variables locales du bloc
     # géomètre (ex: _lu_commune pour Harrois) ne sont pas définies dans ce scope.
-    _fb_commune  = locals().get("_lu_commune",  str(row.get("Commune",  "")).strip())
-    _fb_section  = locals().get("_lu_section",  str(row.get("Section",  "")).strip().upper())
-    # Pour les géomètres sans bloc Harrois (ex: DUPUY), les parcelles viennent du CSV plan
-    _fb_parcelle = locals().get("_lu_parcelle_str", " ".join(filter(None, [
+    # Fallback universel sur les champs du CSV si les variables locales du bloc
+    # géomètre (ex: _lu_commune pour Harrois) ne sont pas définies dans ce scope.
+    # NOTE : on n'utilise PAS locals() qui est fragile si le code est refactorisé dans une fonction.
+    _csv_commune   = str(row.get("Commune",  "")).strip()
+    _csv_section   = str(row.get("Section",  "")).strip().upper()
+    _csv_parcelles = " ".join(filter(None, [
         str(row.get("Nouvelles_Parcelles", "")),
         str(row.get("Anciennes_Parcelles", "")),
         str(row.get("Parcelles", "")),
-    ])).strip())
+    ])).strip()
+
+    # Utilise les variables Harrois/Barrial si disponibles (dans le scope global du script),
+    # sinon repli sur les valeurs CSV.
+    _fb_commune  = st.session_state.get(f"lu_commune_{page_id}",  _csv_commune)  or _csv_commune
+    _fb_section  = st.session_state.get(f"lu_section_{page_id}",  _csv_section)  or _csv_section
+    _fb_parcelle = st.session_state.get(f"lu_parcelle_{page_id}", _csv_parcelles) or _csv_parcelles
 
     _map_commune  = _confirmed.get("commune_excel") or _confirmed.get("commune") or _fb_commune
     _map_section  = _confirmed.get("section_excel", _confirmed.get("section",  _fb_section))
@@ -2380,10 +2388,23 @@ if _confirmed:
             )
         with _col_cancel:
             if st.button("Annuler / Changer de dossier", key=f"btn_cancel_vers_{page_id}", use_container_width=True):
-                if _unified_confirmed_key in st.session_state:
-                    del st.session_state[_unified_confirmed_key]
-                if _lookup_key in st.session_state:
-                    del st.session_state[_lookup_key]
+                # Nettoyer toutes les clés de confirmation pour forcer le retour à l'étape 1
+                _keys_to_clear_cancel = [
+                    _unified_confirmed_key,
+                    f"_lookup_result_{base_name}_{page_id}",
+                    f"_lookup_confirmed_{base_name}_{page_id}",
+                    f"_rc_lookup_result_{base_name}_{page_id}",
+                    f"_rc_lookup_confirmed_{base_name}_{page_id}",
+                    f"_dp_lookup_result_{base_name}_{page_id}",
+                    f"_dp_lookup_confirmed_{base_name}_{page_id}",
+                    f"_ad_lookup_confirmed_{base_name}_{page_id}",
+                    _map_confirmed_key,
+                    _map_coords_key,
+                    _click_key,
+                ]
+                for _k in _keys_to_clear_cancel:
+                    if _k in st.session_state:
+                        del st.session_state[_k]
                 st.rerun()
 
         # ── Exécution du versement ────────────────────────────────────
@@ -2409,7 +2430,24 @@ if _confirmed:
                 _metadata_vers["lat_lon"] = _pos_finale  # [lat, lon] ou None
                 # Passer la nature de l'acte pour résolution du doc_code
                 _metadata_vers["nature_acte"] = str(row.get("Nature_Acte_Geofoncier", "AUTRE")).strip()
-                _vers_result = create_geofoncier_dossier(_metadata_vers)
+                try:
+                    _vers_result = create_geofoncier_dossier(_metadata_vers)
+                except RuntimeError as _token_err:
+                    # Le token a expiré ou les identifiants .env sont invalides
+                    _vers_result = {
+                        "success": False,
+                        "error_code": "TOKEN",
+                        "error_msg": (
+                            f"Impossible de s'authentifier sur Géofoncier : {_token_err}. "
+                            "Vérifiez GEOFONCIER_LOGIN et GEOFONCIER_PASSWORD dans le fichier .env."
+                        )
+                    }
+                except Exception as _api_err:
+                    _vers_result = {
+                        "success": False,
+                        "error_code": "EXCEPTION",
+                        "error_msg": f"Erreur inattendue lors du versement : {_api_err}"
+                    }
 
             if _vers_result.get("success"):
                 _id_doss = _vers_result.get("id_dossier", "")
@@ -2423,12 +2461,21 @@ if _confirmed:
                 st.cache_data.clear()
 
                 # Upload du document source
+                # Recherche insensible à la casse (Windows/WSL) pour éviter les échecs
+                # liés aux extensions en majuscules (ex: .PDF au lieu de .pdf)
                 _doc_path = None
-                for _ext in [".pdf", ".jpg", ".png", ".tif"]:
+                for _ext in [".pdf", ".PDF", ".jpg", ".JPG", ".png", ".PNG", ".tif", ".TIF", ".tiff", ".TIFF"]:
                     _p = os.path.join(INPUTS_DIR, f"{base_name}{_ext}")
                     if os.path.exists(_p):
                         _doc_path = _p
                         break
+                # Fallback glob insensible à la casse (cherche n'importe quelle extension)
+                if not _doc_path:
+                    _glob_candidates = glob.glob(os.path.join(INPUTS_DIR, f"{base_name}.*"))
+                    if _glob_candidates:
+                        # Prioriser les PDF
+                        _glob_pdfs = [g for g in _glob_candidates if g.lower().endswith(".pdf")]
+                        _doc_path = _glob_pdfs[0] if _glob_pdfs else _glob_candidates[0]
 
                 if _doc_path and _id_doss:
                     with st.spinner("Upload du document PDF..."):

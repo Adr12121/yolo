@@ -86,8 +86,11 @@ def refresh_geofoncier_token() -> str:
     print(f"[Token] Demande d'un nouveau token pour '{GEOFONCIER_LOGIN}' sur {_TOKEN_URL} ...")
 
     # Encodage Basic Auth : base64(login:password)
+    # encode('utf-8') d’abord pour supporter les mots de passe avec caractères spéciaux/accents
+    # on n'utilise pas decode('ascii') car cela planterait avec UnicodeDecodeError si le
+    # mot de passe contient des caractères non-ASCII (ex: é, à, ç...)
     credentials = f"{GEOFONCIER_LOGIN}:{GEOFONCIER_PASSWORD}"
-    basic_token = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
+    basic_token = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
 
     headers = {
         "Authorization": f"Basic {basic_token}",
@@ -330,18 +333,23 @@ def format_date_iso(date_str: str, annee_full: int | None = None) -> str:
         return text
 
     # JJ/MM/AAAA ou JJ.MM.AAAA ou JJ-MM-AAAA
+    # Validation basique : rejeter les dates manifestement absurdes (mois > 12, jour > 31)
     m = re.match(r'^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$', text)
     if m:
-        j, mo, a = m.groups()
-        return f"{int(a):04d}-{int(mo):02d}-{int(j):02d}"
+        j_int, mo_int, a_int = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= mo_int <= 12 and 1 <= j_int <= 31 and 1900 <= a_int <= 2100:
+            return f"{a_int:04d}-{mo_int:02d}-{j_int:02d}"
+        # Si les valeurs sont hors bornes, on ne retourne pas cette date
 
     # JJ/MM/AA (2 chiffres) → on suppose 19xx si > 7, 20xx sinon
     m2 = re.match(r'^(\d{1,2})[./-](\d{1,2})[./-](\d{2})$', text)
     if m2:
         j, mo, a2 = m2.groups()
+        j_int, mo_int = int(j), int(mo)
         a_int = int(a2)
-        annee = 2000 + a_int if a_int <= 7 else 1900 + a_int
-        return f"{annee:04d}-{int(mo):02d}-{int(j):02d}"
+        if 1 <= mo_int <= 12 and 1 <= j_int <= 31:
+            annee = 2000 + a_int if a_int <= 7 else 1900 + a_int
+            return f"{annee:04d}-{mo_int:02d}-{j_int:02d}"
 
     if annee_full:
         return f"{annee_full:04d}-01-01"
@@ -390,29 +398,34 @@ def verify_parcel_ign(code_insee, section, numero):
     """
     if not code_insee or not section or not numero:
         return False
-        
-    # Formatage de la section (souvent sur 2 lettres/chiffres ex: '0A' ou 'AB')
-    section_formatted = str(section).zfill(2) if str(section).isdigit() else str(section).upper()
-    
+
+    # Sanitisation de la section : conserver uniquement lettres et chiffres
+    # puis zfill(2). Cela évite que 'A B' ou 'A-B' donnent une erreur 400 à l'IGN.
+    section_clean = re.sub(r'[^A-Z0-9]', '', str(section).strip().upper())
+    section_formatted = section_clean.zfill(2) if section_clean.isdigit() else section_clean
+    if not section_formatted:
+        print(f"⚠️ [IGN] Section invalide après sanitisation : '{section}'")
+        return False
+
     # Extraction de la première parcelle si liste ou chaîne avec virgules
     if isinstance(numero, list):
         numeros = [str(p).strip() for p in numero if str(p).strip()]
     else:
         numeros = [p.strip() for p in str(numero).replace('&', ',').split(',') if p.strip()]
-        
+
     if not numeros:
         return False
-        
+
     # Extraire uniquement les chiffres du premier numéro
     digits = ''.join(filter(str.isdigit, numeros[0]))
     if not digits:
         return False
-        
+
     # Formatage du numéro de parcelle (souvent sur 4 chiffres ex: '0014')
     numero_formatted = digits.zfill(4)
-    
+
     url = f"https://apicarto.ign.fr/api/cadastre/parcelle?code_insee={code_insee}&section={section_formatted}&numero={numero_formatted}"
-    
+
     try:
         resp = requests.get(url, timeout=5)
         if resp.status_code == 200:
@@ -423,7 +436,7 @@ def verify_parcel_ign(code_insee, section, numero):
                 return True
     except Exception as e:
         print(f"⚠️ Erreur lors de l'appel à l'API IGN: {e}")
-        
+
     print(f"⚠️ Contrôle IGN : Parcelle {section_formatted} {numero_formatted} non trouvée (Code INSEE: {code_insee}).")
     return False
 
@@ -442,7 +455,13 @@ def get_parcel_geometry(code_insee: str, section: str, numero) -> dict | None:
     if not code_insee or not section or not numero:
         return {"centroid": None, "geojson": None, "found": False}
 
-    section_fmt = str(section).strip().upper().zfill(2)
+    # Sanitisation robuste de la section avant l'appel IGN :
+    # On retire TOUS les caractères non alphanumériques (espaces, tirets, points...)
+    # Un mauvais OCR peut retourner 'A B', 'A-B' ou 'A.B' qui cassent la requête (erreur 400).
+    section_fmt = re.sub(r'[^A-Z0-9]', '', str(section).strip().upper()).zfill(2)
+    if not section_fmt.replace('0', ''):
+        # Section entièrement numérique après sanitisation (ex: '0A' -> OK, '00' -> suspect)
+        pass  # On garde et on laisse l'API décider
     numero_fmt  = str(numero).zfill(4)
 
     url = (
