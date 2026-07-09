@@ -117,7 +117,7 @@ INPUTS_DIR  = "inputs"
 def format_section(text):
     if not text: return ""
     text = str(text).strip().upper()
-    text = re.sub(r'[^A-Z]', '', text)
+    text = re.sub(r'[^A-Z0-9]', '', text)
     if len(text) > 2: text = text[:2]
     return text
 
@@ -860,18 +860,30 @@ _geometre_raw = str(row.get("Geometre", "")).strip().upper() if "Geometre" in ro
 _geometre_val = _geometre_raw.split()[0] if _geometre_raw else ""
 
 _GEOMETRES_REPERTOIRE = {"HARROIS", "BARRIAL"}
+_GEOMETRES_REPERTOIRE_DUPUY = {"DUPUY"}        # Répertoire spécifique archives DUPUY
+_GEOMETRES_API_DIRECT = {"SERRET", "LACOUR", "ROBERT"}
 
 if _geometre_val in _GEOMETRES_REPERTOIRE:
     st.markdown("---")
-    st.markdown("""
+    _geo_label = {
+        "HARROIS": "Archives Harrois",
+        "BARRIAL": "Archives Barrial",
+        "SERRET":  "Archives Serret",
+        "DUPUY":   "Archives Dupuy",
+        "LACOUR":  "Archives Lacour",
+        "ROBERT":  "Archives Robert",
+        "RACAT":   "Archives Racat",
+        "CEYTE":   "Archives Ceyte",
+    }.get(_geometre_val, f"Archives {_geometre_val}")
+    st.markdown(f"""
     <div style="background:linear-gradient(135deg,#0f172a,#1e293b);color:#f8fafc;
     padding:1.5rem 2rem;border-radius:14px;margin-bottom:1.5rem;
     border-left:5px solid #3b82f6;">
     <h3 style="margin:0;font-size:1.3rem;font-weight:700;">
-        Versement Géofoncier — Archives Harrois / Barrial
+        Versement Géofoncier — {_geo_label}
     </h3>
     <p style="margin:0.4rem 0 0;color:#94a3b8;font-size:0.9rem;">
-       Pour trouver la référence de dossier dans le répertoire, puis versement sur Géofoncier.
+       Recherche de la référence dans le répertoire, puis versement sur Géofoncier.
     </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1085,715 +1097,8 @@ if _geometre_val in _GEOMETRES_REPERTOIRE:
             elif status == "ERREUR":
                 st.error(f"Erreur technique : {_result.get('message', '')}")
 
-        # ══════════════════════════════════════════════════════════════════
-        # Section 1.5 — Carte Interactive de Localisation
-        # ══════════════════════════════════════════════════════════════════
-        _map_confirmed_key = f"_map_confirmed_{base_name}_{page_id}"
-        _map_coords_key    = f"_map_coords_{base_name}_{page_id}"
+        # Le passage vers l'étape 2 (Carte) se fait plus bas dans le flux unifié.
 
-        if _confirmed:
-            _sec_clean = ""
-            _num_clean = ""
-            st.markdown("---")
-            st.markdown("""
-            <div style="background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#f8fafc;
-            padding:1.5rem 2rem;border-radius:14px;margin-bottom:1.5rem;
-            border-left:5px solid #10b981;">
-            <h3 style="margin:0;font-size:1.3rem;font-weight:700;">
-                Étape 2 — Localisation cartographique
-            </h3>
-            <p style="margin:0.4rem 0 0;color:#94a3b8;font-size:0.9rem;">
-                Vérifiez que la pastille sera créée au bon endroit. Déplacez le marqueur si nécessaire.
-            </p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Récupération préliminaire des infos pour la carte
-            _map_commune  = _confirmed.get("commune_excel", _confirmed.get("commune", _lu_commune))
-            _map_section  = _confirmed.get("section_excel", _confirmed.get("section", _lu_section))
-            
-            _map_parcelle = _confirmed.get("parcelle_excel", _confirmed.get("parcelle", None))
-            if pd.isna(_map_parcelle) or not _map_parcelle:
-                _map_parcelle = clean_parcelles_for_lookup(_lu_parcelle_str)[0] if clean_parcelles_for_lookup(_lu_parcelle_str) else None
-            _, _map_insee = get_insee_from_commune(_map_commune)
-
-            # Clés de session pour correction manuelle section/parcelle
-            _map_section_key  = f"map_section_{page_id}"
-            _map_parcelle_key = f"map_parcelle_{page_id}"
-
-            # ── Contrôles de correction section/parcelle ───────────────────
-            _col_mc1, _col_mc2, _col_mc3 = st.columns([1, 1, 1])
-            with _col_mc1:
-                _map_section_input = st.text_input(
-                    "Section (corrigeable)",
-                    value=st.session_state.get(_map_section_key, _map_section or ""),
-                    key=_map_section_key,
-                    help="Modifiez si l'OCR a mal lu la section cadastrale."
-                )
-            with _col_mc2:
-                _map_parcelle_input = st.text_input(
-                    "N° Parcelle (corrigeable)",
-                    value=st.session_state.get(_map_parcelle_key, str(_map_parcelle) if _map_parcelle else ""),
-                    key=_map_parcelle_key,
-                    help="Modifiez si le numéro de parcelle est incorrect."
-                )
-            with _col_mc3:
-                _btn_refresh_map = st.button(
-                    "Actualiser la carte",
-                    key=f"btn_refresh_map_{page_id}",
-                    use_container_width=True,
-                    help="Recherche la parcelle corrigée sur la carte."
-                )
-
-            # Cache de géométrie dans session_state (évite les appels IGN répétés)
-            # ─── Localisation en 3 niveaux : parcelle exacte → section → commune ───
-            # L'API IGN apicarto cherche la parcelle avec le numero actuel.
-            # Format attendu : section 2 cars (ex "AL"), numero 4 chiffres (ex "0160")
-            # Si la parcelle n'est plus dans IGN (fusionnee, renumerotee),
-            # on cherche n'importe quelle parcelle de la meme section pour
-            # centrer la carte dans le bon quartier de la commune.
-            # --- Formatage robuste section / numero (HORS CACHE pour reruns) ---
-            _sec_clean = str(_map_section_input or "").strip().upper().zfill(2)
-            _num_raw   = str(_map_parcelle_input or "").strip()
-            _num_digits = "".join(c for c in _num_raw if c.isdigit())
-            _num_clean  = _num_digits.zfill(4) if _num_digits else ""
-
-            _geom_cache_key = f"_geom_v2_{page_id}_{_map_section_input}_{_map_parcelle_input}_{_map_insee}"
-            if _geom_cache_key not in st.session_state or _btn_refresh_map:
-                _geom = None
-                _geo_status = "commune"  # "parcel" | "section" | "commune"
-
-                # Etape 1 : parcelle exacte (API IGN apicarto)
-                if _sec_clean and _num_clean and _map_insee:
-                    with st.spinner(f"Recherche parcelle {_sec_clean}-{_num_clean} sur IGN..."):
-                        _geom = get_parcel_geometry(_map_insee, _sec_clean, _num_clean)
-                    if _geom and _geom.get("found"):
-                        _geo_status = "parcel"
-                    else:
-                        # Etape 1.5 : Recherche dans l'historique DFI (Filiation)
-                        with st.spinner("Parcelle introuvable. Recherche dans la filiation (DFI)..."):
-                            import cadastre_filiation
-                            dfi_path = "dfi_07.json" # Fichier JSON généré à partir du TXT DFI
-                            filiation_engine = cadastre_filiation.get_filiation_engine(dfi_path if __import__('os').path.exists(dfi_path) else None)
-                            filles = filiation_engine.trouver_parcelles_actuelles(_map_insee, _sec_clean, _num_clean)
-                            
-                            if filles:
-                                # Filiation trouvée ! On tente de géocoder la première parcelle fille
-                                p_fille = filles[0]
-                                _geom_fille = get_parcel_geometry(_map_insee, p_fille['section'], p_fille['numero'])
-                                if _geom_fille and _geom_fille.get("found"):
-                                    _geom = _geom_fille
-                                    _geom["filles_filiation"] = filles
-                                    _geo_status = "filiation"
-
-                # Etape 2 : centroide de n'importe quelle parcelle de la section
-                if _geo_status not in ["parcel", "filiation"] and _sec_clean and _map_insee:
-                    with st.spinner(f"Parcelle non trouvee — recherche du centre section {_sec_clean}..."):
-                        import requests as _rq_sec
-                        try:
-                            _sec_url = (
-                                f"https://apicarto.ign.fr/api/cadastre/parcelle"
-                                f"?code_insee={_map_insee}&section={_sec_clean}&_limit=5"
-                            )
-                            _sec_r = _rq_sec.get(_sec_url, timeout=7)
-                            if _sec_r.status_code == 200:
-                                _sec_feats = _sec_r.json().get("features", [])
-                                if _sec_feats:
-                                    # Calculer le centroide moyen de toutes les parcelles trouvees
-                                    _all_lats, _all_lons = [], []
-                                    for _sf in _sec_feats:
-                                        _sg = _sf.get("geometry", {})
-                                        _sc = _sg.get("coordinates", [])
-                                        if _sc:
-                                            # Handle both Polygon (1 ring) and MultiPolygon (list of polygons)
-                                            _ring = _sc[0][0] if _sg.get("type") == "MultiPolygon" else _sc[0]
-                                            _all_lats.append(sum(p[1] for p in _ring) / len(_ring))
-                                            _all_lons.append(sum(p[0] for p in _ring) / len(_ring))
-                                    if _all_lats:
-                                        _sec_ctr = [sum(_all_lats)/len(_all_lats), sum(_all_lons)/len(_all_lons)]
-                                        _geom = {"centroid": _sec_ctr, "geojson": None, "found": False, "section_found": True}
-                                        _geo_status = "section"
-                        except Exception:
-                            pass
-
-                # Etape 3 : centroide de la commune (dernier recours)
-                if _geo_status == "commune":
-                    _comm_ctr = geocode_commune(_map_commune, _map_insee)
-                    _geom = {"centroid": _comm_ctr, "geojson": None, "found": False, "section_found": False}
-
-                st.session_state[_geom_cache_key] = _geom
-                st.session_state[f"_geo_status_{page_id}"] = _geo_status
-
-            _geom      = st.session_state.get(_geom_cache_key) or {"centroid": [44.7356, 4.5990], "found": False}
-            _geo_status = st.session_state.get(f"_geo_status_{page_id}", "commune")
-
-            _parcel_found   = (_geo_status == "parcel")
-            _filiation_found = (_geo_status == "filiation")
-            _section_approx = (_geo_status == "section")
-            _map_center     = _geom.get("centroid") or [44.7356, 4.5990]
-
-            # Position du marqueur :
-            # Priorite : clic utilisateur sur cette carte > centroide IGN de la parcelle/section/commune
-            _click_key   = f"_map_click_{base_name}_{page_id}"
-            _saved_click = st.session_state.get(_click_key, None)
-            _marker_pos  = _saved_click if _saved_click else _map_center
-
-            # ── Bandeau de statut ──────────────────────────────────────────────────
-            if _parcel_found:
-                st.success(
-                    f"Parcelle **{_sec_clean}-{_num_clean}** localisee sur IGN "
-                    f"(commune {_map_commune}). Polygone orange = parcelle exacte. "
-                    "Cliquez sur la carte pour ajuster la position si besoin."
-                )
-            elif _filiation_found:
-                filles_info = ", ".join([f"{f['section']}-{f['numero']}" for f in _geom.get("filles_filiation", [])])
-                st.success(
-                    f"⚠️ Ancienne parcelle **{_sec_clean}-{_num_clean}** introuvable, mais **filiation identifiée** ! "
-                    f"Elle correspond aujourd'hui aux parcelles : **{filles_info}**. "
-                    "Marqueur placé sur les nouvelles parcelles."
-                )
-            elif _section_approx:
-                st.info(
-                    f"Parcelle **{_sec_clean}-{_num_clean}** introuvable dans IGN et sans historique (DFI). "
-                    f"Carte centree sur la **section {_sec_clean}** au zoom cadastral. "
-                    "**Cliquez sur la parcelle correcte** pour placer la pastille."
-                )
-            else:
-                st.warning(
-                    f"Section **{_sec_clean}** non trouvee. Carte centree sur **{_map_commune}**. "
-                    "Naviguez dans le cadastre et **cliquez** pour positionner la pastille."
-                )
-            if _saved_click:
-                st.success(
-                    f"Position choisie : **{_saved_click[0]:.5f}N, {_saved_click[1]:.5f}E**. "
-                    "Recliquez pour corriger."
-                )
-
-            # ── Construction de la carte Folium ────────────────────────────
-            _zoom = 18 if (_parcel_found or _filiation_found) else 14
-            # Zoom forcé à 18 si parcelle trouvée (sinon numéros illisibles au-dessous)
-            _zoom_final = max(_zoom, 18) if (_parcel_found or _filiation_found) else _zoom
-            _fmap = folium.Map(
-                location=_marker_pos,
-                zoom_start=_zoom_final,
-                control_scale=True,
-                tiles=None,  # On ne charge PAS le fond OSM par défaut
-            )
-
-            # ── FOND 1 : Plan IGN v2 (défaut — affiche routes, batiments, contexte)
-            folium.TileLayer(
-                tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
-                      "&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png"
-                      "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
-                attr="IGN-Géoportail — Plan IGN",
-                name="Plan IGN (défaut)",
-                max_zoom=19,
-                show=True,
-            ).add_to(_fmap)
-
-            # ── FOND 2 : Orthophoto IGN haute résolution
-            folium.TileLayer(
-                tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
-                      "&LAYER=HR.ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg"
-                      "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
-                attr="IGN-Géoportail — Orthophoto",
-                name="Orthophoto IGN",
-                max_zoom=21,
-                show=False,
-            ).add_to(_fmap)
-
-            # ── FOND 3 : Plan OSM (secours)
-            folium.TileLayer(
-                tiles="OpenStreetMap",
-                name="Plan OSM",
-                show=False,
-            ).add_to(_fmap)
-
-            # ── OVERLAY : Cadastre IGN (numéros de parcelles) — ACTIF PAR DÉFAUT
-            folium.WmsTileLayer(
-                url="https://data.geopf.fr/wms-r/wms?",
-                layers="CADASTRALPARCELS.PARCELLAIRE_EXPRESS",
-                fmt="image/png",
-                transparent=True,
-                name="Cadastre (numéros parcelles)",
-                attr="IGN-Géoportail — Cadastre",
-                overlay=True,
-                show=True,       # Activé par défaut
-                opacity=0.85,    # Bien visible
-            ).add_to(_fmap)
-
-            # Polygone de la parcelle (si trouvée via API IGN ou Filiation)
-            if (_parcel_found or _filiation_found) and _geom.get("geojson"):
-                _props = _geom["geojson"].get("properties") or {}
-                folium.GeoJson(
-                    _geom["geojson"],
-                    name="Parcelle identifiée" if _parcel_found else "Nouvelle Parcelle Fille",
-                    style_function=lambda x: {
-                        "fillColor":   "#f97316" if _parcel_found else "#8b5cf6", # Violet si issue de filiation
-                        "color":       "#ea580c" if _parcel_found else "#7c3aed",
-                        "weight":      4,
-                        "fillOpacity": 0.30,
-                    },
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=[k for k in ["section", "numero", "contenance"] if k in _props],
-                        aliases=["Section", "Parcelle", "Contenance"][: sum(1 for k in ["section", "numero", "contenance"] if k in _props)],
-                    )
-                ).add_to(_fmap)
-
-            # Marqueur draggable (= future pastille Géofoncier)
-            _marker_popup = folium.Popup(
-                f"<b>Dossier : {_confirmed.get('ref_dossier', '?')}</b><br>"
-                f"Commune : {_map_commune}<br>"
-                f"Section : {_map_section_input} — Parcelle : {_map_parcelle_input}<br>"
-                f"<em>Cliquez sur la carte pour déplacer la pastille.</em>",
-                max_width=280,
-            )
-            folium.Marker(
-                location=_marker_pos,
-                popup=_marker_popup,
-                tooltip="📍 Future pastille Géofoncier",
-                icon=folium.Icon(color="red", icon="map-marker", prefix="fa"),
-                draggable=True,
-            ).add_to(_fmap)
-
-            # Cercle de contexte (rayon 30m)
-            folium.Circle(
-                location=_marker_pos,
-                radius=30,
-                color="#f59e0b",
-                fill=True,
-                fill_color="#fef3c7",
-                fill_opacity=0.15,
-                weight=2,
-                dash_array="6",
-                tooltip="Rayon 30m",
-            ).add_to(_fmap)
-
-            # Contrôle des couches (déplié pour visibilité)
-            folium.LayerControl(position="topright", collapsed=False).add_to(_fmap)
-
-            # ─── Affichage de la carte ──────────────────────────────────────────────
-            # Zoom adaptatif : 18 si parcelle trouvee, 16 si section, 14 si commune
-            _zoom_map = 18 if (_parcel_found or _filiation_found) else (16 if _section_approx else 14)
-
-            _fmap = folium.Map(
-                location=_map_center,
-                zoom_start=_zoom_map,
-                control_scale=True,
-                tiles=None,
-            )
-
-            # FOND 1 : Plan IGN v2
-            folium.TileLayer(
-                tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
-                      "&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png"
-                      "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
-                attr="IGN-Geoportail Plan IGN", name="Plan IGN",
-                max_zoom=19, show=True,
-            ).add_to(_fmap)
-
-            # FOND 2 : Orthophoto IGN
-            folium.TileLayer(
-                tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
-                      "&LAYER=HR.ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg"
-                      "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
-                attr="IGN-Geoportail Orthophoto", name="Orthophoto IGN",
-                max_zoom=21, show=False,
-            ).add_to(_fmap)
-
-            folium.TileLayer(tiles="OpenStreetMap", name="Plan OSM", show=False).add_to(_fmap)
-
-            # ─── COUCHES GEOFONCIER (Publiques via API OGE) ────────────────────
-            # Emprises des dossiers (polygones)
-            folium.WmsTileLayer(
-                url="https://api2.geofoncier.fr/api/referentielsoge/wxs?",
-                layers="DOSSIERS_EMPRISES",
-                fmt="image/png", transparent=True,
-                name="Géofoncier (Emprises)",
-                attr="Ordre des Géomètres-Experts",
-                overlay=True, show=False, opacity=0.6,
-            ).add_to(_fmap)
-
-            # Localisants des dossiers (pastilles) - Actif par defaut
-            folium.WmsTileLayer(
-                url="https://api2.geofoncier.fr/api/referentielsoge/wxs?",
-                layers="DOSSIERS_LOCALISANTS",
-                fmt="image/png", transparent=True,
-                name="Géofoncier (Pastilles)",
-                attr="Ordre des Géomètres-Experts",
-                overlay=True, show=True, opacity=0.9,
-            ).add_to(_fmap)
-
-            # OVERLAY CADASTRE : numeros de parcelles actifs par defaut
-            folium.WmsTileLayer(
-                url="https://data.geopf.fr/wms-r/wms?",
-                layers="CADASTRALPARCELS.PARCELLAIRE_EXPRESS",
-                fmt="image/png", transparent=True,
-                name="Cadastre IGN (numeros parcelles)",
-                attr="IGN-Geoportail Cadastre",
-                overlay=True, show=True, opacity=0.85,
-            ).add_to(_fmap)
-
-            # Polygone orange : parcelle exacte si trouvee dans IGN (violet si filiation)
-            if (_parcel_found or _filiation_found) and _geom.get("geojson"):
-                _props = _geom["geojson"].get("properties") or {}
-                _tt_fields  = [k for k in ["section", "numero", "contenance"] if k in _props]
-                _tt_aliases = ["Section", "Parcelle", "Surface m2"][:len(_tt_fields)]
-                folium.GeoJson(
-                    _geom["geojson"],
-                    name="Parcelle cadastrale identifiee",
-                    style_function=lambda x: {
-                        "fillColor": "#f97316" if _parcel_found else "#8b5cf6",
-                        "color": "#ea580c" if _parcel_found else "#7c3aed",
-                        "weight": 4, "fillOpacity": 0.35,
-                    },
-                    tooltip=folium.GeoJsonTooltip(fields=_tt_fields, aliases=_tt_aliases)
-                ).add_to(_fmap)
-
-            # Marqueur rouge = future pastille Geofoncier
-            # Position : clic utilisateur si deja clique, sinon centroide IGN
-            folium.Marker(
-                location=_marker_pos,
-                popup=folium.Popup(
-                    f"<b>Dossier {_confirmed.get('ref_dossier', '?')}</b><br>"
-                    f"Commune : {_map_commune}<br>"
-                    f"Section : {_sec_clean} - Parcelle : {_num_clean}<br>"
-                    f"<i>Cliquez sur la carte pour repositionner.</i>",
-                    max_width=260,
-                ),
-                tooltip="Pastille Geofoncier — cliquez sur la carte pour deplacer",
-                icon=folium.Icon(color="red", icon="map-marker", prefix="fa"),
-                draggable=True,
-            ).add_to(_fmap)
-
-            folium.Circle(
-                location=_marker_pos, radius=25,
-                color="#f59e0b", fill=True, fill_color="#fef3c7",
-                fill_opacity=0.2, weight=2, dash_array="5",
-            ).add_to(_fmap)
-
-            folium.LayerControl(position="topright", collapsed=False).add_to(_fmap)
-
-            # ─── Rendu st_folium ──────────────────────────────────────────────────────
-            # La cle inclut _marker_pos pour forcer le rerendu quand la position change.
-            _map_key = f"fmap_{page_id}_{_sec_clean}_{_num_clean}_{str(_marker_pos)[:25]}"
-
-            if "show_plan_comparatif" not in st.session_state:
-                st.session_state.show_plan_comparatif = False
-
-            _btn_label = "Masquer le plan d'époque" if st.session_state.show_plan_comparatif else "Comparer avec le plan d'époque"
-            if st.button(_btn_label):
-                st.session_state.show_plan_comparatif = not st.session_state.show_plan_comparatif
-                st.rerun()
-
-            if st.session_state.show_plan_comparatif and 'img_base' in locals() and img_base:
-                col_map, col_img = st.columns([1, 1], gap="medium")
-            else:
-                col_map = st.container()
-                col_img = None
-
-            with col_map:
-                _map_output = st_folium(
-                    _fmap,
-                    width="100%",
-                    height=520,
-                    returned_objects=["last_clicked"],
-                    key=_map_key,
-                )
-                
-            if col_img is not None:
-                with col_img:
-                    st.image(img_base, use_container_width=True)
-
-            # ─── Mise a jour position apres clic utilisateur ─────────────────────────
-            # Quand l'utilisateur clique sur une parcelle, last_clicked est mis a jour.
-            # On sauvegarde le clic → rerun → marqueur se deplace a la nouvelle position.
-            if _map_output and _map_output.get("last_clicked"):
-                _lc = _map_output["last_clicked"]
-                _lat_c, _lng_c = _lc.get("lat"), _lc.get("lng")
-                if _lat_c is not None and _lng_c is not None:
-                    _new_pos = [_lat_c, _lng_c]
-                    if st.session_state.get(_click_key) != _new_pos:
-                        st.session_state[_click_key] = _new_pos
-                        st.rerun()
-
-            # ─── Boutons de confirmation / reinitialisation ───────────────────────────
-            st.caption(
-                "Cliquez sur la carte pour positionner la pastille sur la bonne parcelle. "
-                "Puis cliquez Confirmer pour passer au versement."
-            )
-            def _on_confirm_map():
-                _pos_finale = st.session_state.get(_click_key, _marker_pos)
-                st.session_state[_map_confirmed_key] = True
-                st.session_state[_map_coords_key]    = _pos_finale
-                
-                _final_sec = _sec_clean
-                _final_num = _num_clean
-                
-                # Récupérer la parcelle exacte sous le marqueur placé par l'opérateur
-                import geofoncier_api
-                _clicked_parcel = geofoncier_api.get_parcel_by_coordinates(_pos_finale[0], _pos_finale[1])
-                
-                if _clicked_parcel and _clicked_parcel.get("section") and _clicked_parcel.get("numero"):
-                    _final_sec = _clicked_parcel["section"].zfill(2)
-                    _final_num = _clicked_parcel["numero"].zfill(4)
-                elif _filiation_found and _geom and _geom.get("filles_filiation"):
-                    # Fallback sur la première fille de la filiation
-                    _fille = _geom["filles_filiation"][0]
-                    _final_sec = _fille["section"].zfill(2)
-                    _final_num = _fille["numero"]
-                
-                st.session_state[f"lu_section_{page_id}"] = _final_sec
-                _confirmed["section_excel"] = _final_sec
-                _confirmed["parcelle_excel"] = _final_num
-                
-                st.session_state[_confirmed_key] = _confirmed
-
-            _col_btn1, _col_btn2 = st.columns([1, 1])
-            with _col_btn1:
-                st.button(
-                    "Confirmer cette localisation",
-                    type="primary",
-                    key=f"btn_map_confirm_{page_id}",
-                    use_container_width=True,
-                    on_click=_on_confirm_map
-                )
-
-            with _col_btn2:
-                if st.button(
-                    "Reinitialiser la localisation",
-                    key=f"btn_map_reset_{page_id}",
-                    use_container_width=True,
-                ):
-                    for _k in [_map_confirmed_key, _map_coords_key, _geom_cache_key,
-                                _click_key, f"_geo_status_{page_id}"]:
-                        if _k in st.session_state:
-                            del st.session_state[_k]
-                    st.rerun()
-
-            if st.session_state.get(_map_confirmed_key):
-                _pos_conf = st.session_state.get(_map_coords_key, _marker_pos)
-                st.success(
-                    f"Localisation confirmee : {_pos_conf[0]:.5f}N, {_pos_conf[1]:.5f}E "
-                    f"- Section {_sec_clean}, Parcelle {_num_clean}"
-                )
-            else:
-                st.markdown(
-                    "<div style='background:#fef3c7;border-left:4px solid #f59e0b;"
-                    "padding:10px 16px;border-radius:8px;font-size:0.9rem;'>"
-                    "<b>Action requise</b> : Verifiez la pastille rouge, cliquez sur la"
-                    " bonne parcelle si besoin, puis confirmez ci-dessus.</div>",
-                    unsafe_allow_html=True
-                )
-
-        _map_validated = st.session_state.get(_map_confirmed_key, False)
-        if _confirmed and _map_validated:
-            st.markdown("---")
-            st.markdown("### Étape 3 — Versement sur Géofoncier")
-
-            # Récupération des informations finales
-            _ref_dossier  = _confirmed.get("ref_dossier", "")
-            _op_gf        = _confirmed.get("op_code_gf", "")
-            _op_excel     = _confirmed.get("op_code_excel", "")
-            _annee_full   = _confirmed.get("annee_full", None)
-            _section_final = _confirmed.get("section_excel", _lu_section)
-            _parcelle_final = _confirmed.get("parcelle_excel", None)
-
-            # Code INSEE
-            _, _code_insee_auto = get_insee_from_commune(_lu_commune)
-
-            # Récap des identifiants
-            _cab_createur_label = "HARROIS" if _geometre_val == "HARROIS" else "BARRIAL"
-            _cab_createur_code  = "1987I004169" if _geometre_val == "HARROIS" else "1977I003499"
-
-            # Affichage récapitulatif
-            st.markdown("""
-            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem;margin-bottom:1rem;">
-            <h4 style="margin:0 0 1rem;color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:0.5rem;">
-                Récapitulatif du dossier à créer
-            </h4>
-            """, unsafe_allow_html=True)
-
-            _cols_recap = st.columns(2)
-            with _cols_recap[0]:
-                st.markdown(f"""
-                | Champ | Valeur |
-                |---|---|
-                | **Cabinet créateur** | {_cab_createur_label} (`{_cab_createur_code}`) |
-                | **Cabinet détenteur** | GEO-SIAPP (`1992C100001`) |
-                | **GE créateur** | Lionnel Robert (`05141`) |
-                | **Référence dossier** | `{_ref_dossier}` |
-                """)
-            with _cols_recap[1]:
-                st.markdown(f"""
-                | Champ | Valeur |
-                |---|---|
-                | **Code INSEE** | `{_code_insee_auto or 'Non trouvé'}` |
-                | **Commune** | {_lu_commune} |
-                | **Section** | {_section_final} |
-                | **Parcelle** | {_parcelle_final or '—'} |
-                | **Opération** | {_op_excel} → `{_op_gf}` |
-                """)
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            # Date dossier (modifiable)
-            _date_csv = str(row.get("Date","")).strip()
-            _date_iso_auto = format_date_iso(_date_csv, _annee_full)
-            
-            # Forcer la cohérence avec le répertoire certifié
-            _date_repertoire = _confirmed.get("date_cadastre")
-            if _date_repertoire and str(_date_repertoire).strip() not in ("nan", "None", ""):
-                # Si le répertoire contient une date complète (ex: Racat/Ceyte)
-                _date_iso_auto = format_date_iso(str(_date_repertoire), _annee_full)
-            elif _annee_full and not _date_iso_auto.startswith(str(_annee_full)):
-                # Si l'OCR a sorti une date abracadabrante (mauvaise année) on force le 1er janvier de l'année certifiée
-                _date_iso_auto = f"{_annee_full:04d}-01-01"
-                
-            _lu_date_iso = st.text_input(
-                "Date du dossier (format AAAA-MM-JJ)",
-                value=_date_iso_auto,
-                key=f"lu_date_iso_{page_id}",
-                help="Priorité : Date exacte du répertoire > 1er Janvier de l'année du répertoire > Date lue par l'OCR."
-            )
-
-            # Code opération (modifiable si vide)
-            if not _op_gf:
-                _lu_op_gf = st.text_input(
-                    "Code opération Géofoncier (obligatoire)",
-                    value="Da",  # Valeur par défaut (Document d'Arpentage / Division)
-                    key=f"lu_op_gf_{page_id}",
-                    help="Ex: Da=Document d'Arpentage, Bo=Bornage, Pt=Plan Topo..."
-                )
-            else:
-                _lu_op_gf = _op_gf
-                st.info(f"Code opération Géofoncier : **{_op_excel}** → `{_op_gf}`")
-                
-            _lu_statut_gf = st.selectbox(
-                "Statut du dossier sur Géofoncier",
-                ["Achevé", "Indéterminé", "En cours", "Annulé", "Archivé"],
-                index=0,
-                key=f"lu_statut_gf_{page_id}",
-                help="Le statut 'Achevé' est attendu par défaut pour ce type d'archive."
-            )
-
-            # Vérification IGN
-            _ign_ok = False
-            if _code_insee_auto and _section_final and _parcelle_final:
-                with st.spinner("Vérification IGN de la parcelle..."):
-                    _ign_ok = verify_parcel_ign(_code_insee_auto, _section_final, str(_parcelle_final))
-                if _ign_ok:
-                    st.success(f"Parcelle **{_section_final}-{_parcelle_final}** trouvée sur l'IGN (commune {_code_insee_auto}).")
-                else:
-                    st.warning(
-                        f"Parcelle **{_section_final}-{_parcelle_final}** non trouvée sur l'IGN (commune {_code_insee_auto}). "
-                        "Vérifiez la section et la parcelle. Vous pouvez quand même verser si vous êtes certain(e).",
-
-                    )
-            else:
-                if not _code_insee_auto:
-                    st.error("Code INSEE introuvable — le versement ne peut pas continuer sans code INSEE valide.")
-                else:
-                    st.warning("Parcelle ou section manquante — la vérification IGN est ignorée.")
-
-            # Dry Run checkbox + bouton de versement
-            st.markdown("---")
-            _dry_run_cb = st.checkbox(
-                "Mode Test (Dry Run) — Ne pas envoyer réellement à Géofoncier",
-                value=True,
-                key=f"dry_run_{page_id}",
-                help="Décochez uniquement quand vous êtes certain(e) de vouloir créer le dossier en production."
-            )
-
-            # Bouton désactivé si code INSEE manquant ou code opération manquant
-            _can_submit = bool(_code_insee_auto and _lu_op_gf and _ref_dossier)
-            if not _can_submit:
-                _missing = []
-                if not _code_insee_auto: _missing.append("Code INSEE")
-                if not _lu_op_gf:        _missing.append("Code opération GF")
-                if not _ref_dossier:     _missing.append("Référence dossier")
-                st.error(f"Impossible de verser — informations manquantes : {', '.join(_missing)}")
-
-            _col_vers, _col_cancel = st.columns([1, 1])
-            with _col_vers:
-                _btn_vers = st.button(
-                    "Créer le dossier sur Géofoncier" if not _dry_run_cb else "Simuler la création (Dry Run)",
-                    type="primary",
-                    disabled=not _can_submit,
-                    key=f"btn_vers_{page_id}",
-                    use_container_width=True
-                )
-            with _col_cancel:
-                if st.button("Annuler / Changer de dossier", key=f"btn_cancel_vers_{page_id}", use_container_width=True):
-                    if _confirmed_key in st.session_state:
-                        del st.session_state[_confirmed_key]
-                    if _lookup_key in st.session_state:
-                        del st.session_state[_lookup_key]
-                    st.rerun()
-
-            # ── Exécution du versement ────────────────────────────────────
-            if _btn_vers and _can_submit:
-                # Construction du payload dict
-                _metadata_vers = {
-                    "geometre":     _geometre_val,
-                    "ref_dossier":  _ref_dossier,
-                    "commune":      _lu_commune,
-                    "code_insee":   _code_insee_auto,
-                    "section":      _section_final,
-                    "parcelles":    [_parcelle_final] if _parcelle_final else [],
-                    "annee_full":   _annee_full,
-                    "date_dossier": _lu_date_iso,
-                    "op_codes_gf":  [_lu_op_gf] if _lu_op_gf else [],
-                    "enr_statut":   _lu_statut_gf,
-                }
-
-                with st.spinner("Création du dossier en cours..." if not _dry_run_cb else "Simulation en cours..."):
-                    _vers_result = create_geofoncier_dossier(_metadata_vers, dry_run=_dry_run_cb)
-
-                if _vers_result.get("success"):
-                    _id_doss = _vers_result.get("id_dossier", "")
-                    if _dry_run_cb:
-                        st.success("Simulation réussie ! Voici le payload qui sera envoyé :")
-                        st.json(_vers_result.get("payload", {}))
-                    else:
-                        st.success(f"Dossier créé avec succès sur Géofoncier ! ID : **{_id_doss}**")
-
-                        # Mise à jour du statut dans le CSV
-                        _idx_row = df[df[id_col] == page_id].index[0]
-                        import datetime as _dt
-                        df.at[_idx_row, "Confirmation_Status"] = f"Versé sur Géofoncier ({_dt.datetime.now().strftime('%d/%m/%Y %H:%M')})"
-                        df.to_csv(fichier_choisi, sep=";", index=False, encoding="utf-8-sig")
-                        st.cache_data.clear()
-
-                        # Upload du document source
-                        _doc_path = None
-                        for _ext in [".pdf", ".jpg", ".png", ".tif"]:
-                            _p = os.path.join(INPUTS_DIR, f"{base_name}{_ext}")
-                            if os.path.exists(_p):
-                                _doc_path = _p
-                                break
-
-                        if _doc_path and _id_doss:
-                            with st.spinner("Upload du document PDF..."):
-                                _up_result = upload_document_to_dossier(
-                                    _id_doss, _doc_path,
-                                    doc_description=f"Archive {_ref_dossier} — {_lu_commune}",
-                                    dry_run=False
-                                )
-                            if _up_result.get("success"):
-                                st.success("Document PDF uploadé avec succès.")
-                            else:
-                                st.warning(f"Le dossier est créé, mais l'upload du PDF a échoué : {_up_result.get('error_msg','')}")
-                        elif not _doc_path:
-                            st.warning(f"Document PDF source introuvable dans {INPUTS_DIR}/ pour {base_name}.*")
-                else:
-                    st.error(
-                        f"Échec de la création du dossier : "
-                        f"({_vers_result.get('error_code','?')}) {_vers_result.get('error_msg','Erreur inconnue.')}"
-                    )
-                    if _vers_result.get("payload"):
-                        with st.expander("Détail du payload envoyé (diagnostic)"):
-                            st.json(_vers_result["payload"])
 
 elif _geometre_val in {"RACAT", "CEYTE"}:
     # ══════════════════════════════════════════════════════════════════
@@ -1997,6 +1302,338 @@ elif _geometre_val in {"RACAT", "CEYTE"}:
                     "Le versement API automatique pour Racat/Ceyte sera disponible dans une prochaine version.",
                 )
 
+# ── Archives DUPUY — Répertoire Excel spécifique ─────────────────────────────────
+elif _geometre_val in _GEOMETRES_REPERTOIRE_DUPUY:
+    st.markdown("---")
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#1c1108,#3d2100);color:#f8fafc;
+    padding:1.5rem 2rem;border-radius:14px;margin-bottom:1.5rem;
+    border-left:5px solid #f59e0b;">
+    <h3 style="margin:0;font-size:1.3rem;font-weight:700;">
+        Résolution répertoire — Archives Roger DUPUY
+    </h3>
+    <p style="margin:0.4rem 0 0;color:#fcd34d;font-size:0.9rem;">
+        Recherche par commune et année dans le répertoire numérique des archives DUPUY.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Avertissement permanent sur les registres partiels ───────────────────────
+    st.warning(
+        "⚠️ **Registres partiellement numérisés** — "
+        "Les archives de Roger DUPUY ne sont pas toutes présentes dans la base. "
+        "Si aucun résultat n'est trouvé, le dossier peut exister dans les registres papier. "
+        "Consultez les archives physiques en cas de doute."
+    )
+
+    # ── Import du module de lookup DUPUY ─────────────────────────────────────
+    try:
+        from repertoire_dupuy_lookup import (
+            find_dossier_dupuy, build_ref_dupuy,
+            GEOMETRES_REPERTOIRE_DUPUY as _DUPUY_GEO_SET
+        )
+        _dupuy_ok = True
+    except ImportError as _dupuy_err:
+        st.error(f"Module repertoire_dupuy_lookup introuvable : {_dupuy_err}")
+        _dupuy_ok = False
+
+    if _dupuy_ok:
+        # Pré-remplissage depuis le CSV
+        _dp_commune_pre = str(row.get("Commune", "")).strip()
+        _dp_date_pre    = str(row.get("Date", "")).strip()
+
+        # Extraire l'année (4 chiffres) depuis la date du plan
+        _dp_annee_pre = None
+        import re as _re_dp
+        _m_dp = _re_dp.search(r"(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})", _dp_date_pre)
+        if _m_dp:
+            _yr = int(_m_dp.group(3))
+            _dp_annee_pre = 2000 + _yr if _yr <= 30 else (1900 + _yr if _yr < 100 else _yr)
+        else:
+            # Cherche une année seule à 4 chiffres
+            _m_dp4 = _re_dp.search(r"\b(19\d{2}|20[0-2]\d)\b", _dp_date_pre)
+            if _m_dp4:
+                _dp_annee_pre = int(_m_dp4.group(1))
+
+        # Champs de saisie
+        _dp_col_a, _dp_col_b = st.columns([1, 1])
+        with _dp_col_a:
+            _dp_commune = st.text_input(
+                "Commune",
+                value=_dp_commune_pre,
+                key=f"dp_commune_{page_id}",
+                help="Le nom de la commune tel qu'inscrit sur le plan."
+            )
+        with _dp_col_b:
+            _dp_annee_str = st.text_input(
+                "Année (4 chiffres, ex: 1975)",
+                value=str(_dp_annee_pre) if _dp_annee_pre else "",
+                key=f"dp_annee_{page_id}",
+                help="Année du document. Laissez vide pour chercher sur toutes les années de la commune."
+            )
+
+        # Champs optionnels pour améliorer le tri (non obligatoires)
+        with st.expander(
+            "🔍 Aide au tri (optionnel) — Noms de propriétaires visibles sur le plan",
+            expanded=False
+        ):
+            st.caption(
+                "Si vous voyez les noms des propriétaires sur le plan, "
+                "saisissez-les ici pour que le dossier le plus probable apparaisse en tête de liste."
+            )
+            _dp_col_c, _dp_col_d = st.columns(2)
+            with _dp_col_c:
+                _dp_hint_anc = st.text_area(
+                    "Anciens propriétaires (texte libre)",
+                    height=80, key=f"dp_hint_anc_{page_id}",
+                    label_visibility="visible"
+                )
+            with _dp_col_d:
+                _dp_hint_nou = st.text_area(
+                    "Nouveaux propriétaires (texte libre)",
+                    height=80, key=f"dp_hint_nou_{page_id}",
+                    label_visibility="visible"
+                )
+
+        # Parsing année
+        _dp_annee = None
+        if _dp_annee_str.strip():
+            try:
+                _dp_annee = int(_dp_annee_str.strip())
+                if not (1900 <= _dp_annee <= 2050):
+                    st.warning("L'année doit être un entier à 4 chiffres (ex: 1975).")
+                    _dp_annee = None
+            except ValueError:
+                st.warning("L'année doit être un entier (ex: 1975).")
+
+        _dp_lookup_key  = f"_dp_lookup_result_{base_name}_{page_id}"
+        _dp_conf_key    = f"_dp_lookup_confirmed_{base_name}_{page_id}"
+
+        _dp_col_btn, _ = st.columns([1, 3])
+        with _dp_col_btn:
+            if st.button(
+                "Rechercher dans les archives DUPUY",
+                type="primary", key=f"dp_btn_search_{page_id}",
+                use_container_width=True
+            ):
+                with st.spinner("Recherche dans le répertoire DUPUY..."):
+                    _dp_result = find_dossier_dupuy(
+                        commune=_dp_commune,
+                        annee=_dp_annee,
+                        hint_anciens=st.session_state.get(f"dp_hint_anc_{page_id}", ""),
+                        hint_nouveaux=st.session_state.get(f"dp_hint_nou_{page_id}", ""),
+                    )
+                st.session_state[_dp_lookup_key] = _dp_result
+                if _dp_conf_key in st.session_state:
+                    del st.session_state[_dp_conf_key]
+
+        _dp_result    = st.session_state.get(_dp_lookup_key, None)
+        _dp_confirmed = st.session_state.get(_dp_conf_key, None)
+
+        if _dp_result:
+            _dp_status = _dp_result.get("status", "")
+
+            if _dp_status == "CANDIDATS":
+                _dp_cands = _dp_result.get("candidats", [])
+                _dp_nb    = _dp_result.get("nb_candidats", len(_dp_cands))
+
+                # Message récapitulatif
+                st.info(_dp_result.get("message", ""))
+
+                # Tableau interactif des candidats
+                # Colonnes affichées : Ref, Année, Commune, Anciens prop, Nouveaux prop, Score sim., Notes
+                _dp_rows_display = []
+                for _cand in _dp_cands:
+                    _score_txt = f"{_cand['score_prop']}%" if _cand['score_prop'] > 0 else "—"
+                    _dp_rows_display.append({
+                        "Référence":       _cand["ref_dossier"],
+                        "Année":           _cand["annee"],
+                        "Commune":         _cand["commune"],
+                        "Anciens Propriétaires": _cand["prop_anciens"][:80] + ("..." if len(_cand["prop_anciens"]) > 80 else ""),
+                        "Nouveaux Propriétaires": _cand["prop_nouveaux"][:80] + ("..." if len(_cand["prop_nouveaux"]) > 80 else ""),
+                        "Similarité Prop.": _score_txt,
+                        "Notes":           _cand.get("notes", ""),
+                    })
+
+                _dp_df_display = pd.DataFrame(_dp_rows_display)
+
+                _dp_sel = st.dataframe(
+                    _dp_df_display,
+                    use_container_width=True,
+                    hide_index=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key=f"dp_cand_table_{page_id}",
+                    column_config={
+                        "Référence":       st.column_config.TextColumn(width="small"),
+                        "Année":           st.column_config.NumberColumn(width="small", format="%d"),
+                        "Commune":         st.column_config.TextColumn(width="small"),
+                        "Anciens Propriétaires":  st.column_config.TextColumn(width="large"),
+                        "Nouveaux Propriétaires": st.column_config.TextColumn(width="large"),
+                        "Similarité Prop.": st.column_config.TextColumn(width="small"),
+                        "Notes":           st.column_config.TextColumn(width="medium"),
+                    }
+                )
+
+                # Guide de lecture
+                st.caption(
+                    "💡 Cliquez sur une ligne pour la sélectionner, puis confirmez. "
+                    "Le premier résultat est le plus probable (meilleure similarité de propriétaires). "
+                    "Vérifiez les noms avant de confirmer."
+                )
+
+                _dp_sel_rows = _dp_sel.selection.get("rows", []) if hasattr(_dp_sel, "selection") else []
+                if _dp_sel_rows:
+                    _dp_chosen = _dp_cands[_dp_sel_rows[0]]
+                    st.success(
+                        f"✅ Sélection : **{_dp_chosen['ref_dossier']}** — "
+                        f"{_dp_chosen['commune']} ({_dp_chosen['annee']}) — "
+                        f"Anciens : {str(_dp_chosen['prop_anciens'])[:60]}"
+                    )
+                    _dp_c1, _dp_c2 = st.columns([1, 2])
+                    with _dp_c1:
+                        if st.button(
+                            "Confirmer ce dossier DUPUY",
+                            type="primary",
+                            key=f"dp_btn_confirm_{page_id}",
+                            use_container_width=True
+                        ):
+                            st.session_state[_dp_conf_key] = _dp_chosen
+                            st.rerun()
+                    with _dp_c2:
+                        if st.button(
+                            "Nouvelle recherche",
+                            key=f"dp_btn_reset_{page_id}",
+                            use_container_width=True
+                        ):
+                            for _k in [_dp_lookup_key, _dp_conf_key]:
+                                if _k in st.session_state: del st.session_state[_k]
+                            st.rerun()
+
+            elif _dp_status == "NO_MATCH":
+                st.error(_dp_result.get("message", "Aucune correspondance trouvée."))
+                st.markdown(
+                    "> ⚠️ **Rappel** : Ce résultat ne signifie pas que le dossier est inexistant. "
+                    "Il peut se trouver dans les registres papier non encore numérisés."
+                )
+                # Saisie manuelle
+                _dp_manual_ref = st.text_input(
+                    "Référence manuelle (ex: 70123)",
+                    key=f"dp_manual_ref_{page_id}",
+                    help="Saisissez la référence trouvée manuellement dans le registre papier"
+                )
+                if _dp_manual_ref and st.button(
+                    "Utiliser cette référence manuelle",
+                    key=f"dp_btn_manual_{page_id}"
+                ):
+                    st.session_state[_dp_conf_key] = {
+                        "ref_dossier":   _dp_manual_ref.strip(),
+                        "annee":         _dp_annee,
+                        "n_dossier":     _dp_manual_ref.strip(),
+                        "commune":       _dp_commune,
+                        "prop_anciens":  "",
+                        "prop_nouveaux": "",
+                        "notes":         "Saisie manuelle",
+                        "score_commune": 0,
+                        "score_prop":    0,
+                    }
+                    st.rerun()
+
+            elif _dp_status == "ERREUR":
+                st.error(f"Erreur technique : {_dp_result.get('message', '')}")
+                st.info(
+                    "Vérifiez que le fichier `Repertoire_Archives_DUPUY.xlsx` est accessible "
+                    f"sur `Z:\\_ArchivesDUPUY\\` ou dans le dossier `outputs/` de l'extracteur Dupuy."
+                )
+
+        # Dossier confirmé — récapitulatif
+        if _dp_confirmed:
+            st.markdown(
+                f"""
+                <div style="background:#d1fae5;border-left:5px solid #10b981;
+                padding:1rem 1.5rem;border-radius:10px;margin:1rem 0;">
+                <strong style="color:#065f46;font-size:1rem;">Dossier DUPUY confirmé</strong><br>
+                <table style="margin-top:0.5rem;border-collapse:collapse;width:100%;">
+                <tr><td style="padding:2px 8px;"><b>Référence</b></td>
+                    <td style="color:#065f46;font-weight:700;font-size:1.1rem;">{_dp_confirmed.get('ref_dossier', '—')}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Commune</b></td>
+                    <td>{_dp_confirmed.get('commune', '')}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Année</b></td>
+                    <td>{_dp_confirmed.get('annee', '')}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Anciens Propriétaires</b></td>
+                    <td style="font-size:0.85rem;">{str(_dp_confirmed.get('prop_anciens', ''))[:100]}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Nouveaux Propriétaires</b></td>
+                    <td style="font-size:0.85rem;">{str(_dp_confirmed.get('prop_nouveaux', ''))[:100]}</td></tr>
+                </table>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+# Géomètres avec flux API direct (sans répertoire Excel dédié)
+elif _geometre_val in _GEOMETRES_API_DIRECT:
+    st.markdown("---")
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);color:#f8fafc;
+    padding:1.5rem 2rem;border-radius:14px;margin-bottom:1.5rem;
+    border-left:5px solid #a78bfa;">
+    <h3 style="margin:0;font-size:1.3rem;font-weight:700;">
+        Versement Géofoncier — Archives {_geometre_val.capitalize()}
+    </h3>
+    <p style="margin:0.4rem 0 0;color:#94a3b8;font-size:0.9rem;">
+        Ce géomètre ne possède pas encore de répertoire Excel numérique.
+        Saisissez la référence manuellement pouvoir verser.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    try:
+        from geofoncier_api import (
+            create_geofoncier_dossier, upload_document_to_dossier,
+            get_insee_from_commune, format_date_iso
+        )
+        _ad_ok = True
+    except ImportError as _ad_err:
+        st.error(f"Module géofoncier introuvable : {_ad_err}")
+        _ad_ok = False
+
+    if _ad_ok:
+        _ad_commune = str(row.get("Commune", "")).strip()
+        _ad_section  = str(row.get("Section", "")).strip().upper()
+        _ad_date     = str(row.get("Date", "")).strip()
+        _ad_parcelle = str(row.get("Parcelles", "")).strip()
+        _, _ad_insee = get_insee_from_commune(_ad_commune)
+
+        st.markdown("#### Référence manuelle")
+        _col_ad1, _col_ad2 = st.columns(2)
+        with _col_ad1:
+            _ad_ref = st.text_input("Référence dossier", key=f"ad_ref_{page_id}",
+                                    help="Trouvez la référence dans le registre papier du géomètre.")
+            _ad_op  = st.text_input("Code opération Géofoncier", value="Da", key=f"ad_op_{page_id}")
+        with _col_ad2:
+            _ad_date_iso = st.text_input("Date (AAAA-MM-JJ)", value=format_date_iso(_ad_date),
+                                         key=f"ad_date_{page_id}")
+            _ad_statut = st.selectbox("Statut", ["Achevé", "Indéterminé", "En cours"],
+                                      key=f"ad_statut_{page_id}")
+
+        _ad_can = bool(_ad_ref and _ad_op and _ad_isbn if (_ad_isbn := _ad_insee) else _ad_ref and _ad_op)
+
+        if not _ad_isbn:
+            st.warning(f"Code INSEE introuvable pour '{_ad_commune}' — vérifiez la commune.")
+
+        if st.button("Confirmer cette référence", type="primary", disabled=not _ad_ref, key=f"ad_btn_conf_{page_id}"):
+            st.session_state[f"_ad_lookup_confirmed_{base_name}_{page_id}"] = {
+                "ref_dossier": _ad_ref.strip(),
+                "commune_excel": _ad_commune,
+                "section_excel": _ad_section,
+                "parcelle_excel": _ad_parcelle,
+                "date_cadastre": _ad_date_iso,
+                "op_code_gf": _ad_op.strip(),
+                "op_code_excel": _ad_op.strip(),
+                "annee_full": int(_ad_date_iso[:4]) if _ad_date_iso and len(_ad_date_iso)>=4 else None,
+                "enr_statut": _ad_statut
+            }
+            st.rerun()
 else:
     # Géomètre non pris en charge
     if _geometre_val and _geometre_val not in {"", "NAN", "NONE"}:
@@ -2004,6 +1641,815 @@ else:
         st.info(
             f"Le géomètre **{_geometre_val}** n'est pas encore pris en charge pour la résolution automatique. "
             "Utilisez l'export CSV ci-dessus.",
-
         )
+
+
+# ══════════════════════════════════════════════════════════════════
+# UNIFICATION DU FLUX GEOFONCIER (Étapes 2 et 3) POUR TOUS GEOMETRES
+# ══════════════════════════════════════════════════════════════════
+_unified_dossier = None
+if 'page_id' in locals() and 'base_name' in locals():
+    if _geometre_val in _GEOMETRES_REPERTOIRE and st.session_state.get(f"_lookup_confirmed_{base_name}_{page_id}"):
+        _unified_dossier = st.session_state.get(f"_lookup_confirmed_{base_name}_{page_id}")
+    elif _geometre_val in {"RACAT", "CEYTE"} and st.session_state.get(f"_rc_lookup_confirmed_{base_name}_{page_id}"):
+        _unified_dossier = st.session_state.get(f"_rc_lookup_confirmed_{base_name}_{page_id}")
+        _unified_dossier["parcelle_excel"] = _unified_dossier.get("parcelle_acq", [None])[0] if _unified_dossier.get("parcelle_acq") else None
+        _unified_dossier["op_code_gf"] = "Em"  # Em = Modification du parcellaire cadastral
+        if _unified_dossier.get("annee"):
+            _unified_dossier["date_cadastre"] = f"{_unified_dossier['annee']}-01-01"
+    elif _geometre_val in _GEOMETRES_REPERTOIRE_DUPUY and st.session_state.get(f"_dp_lookup_confirmed_{base_name}_{page_id}"):
+        _dp_conf_data = st.session_state.get(f"_dp_lookup_confirmed_{base_name}_{page_id}")
+        _unified_dossier = {
+            "ref_dossier":   _dp_conf_data.get("ref_dossier", ""),
+            "commune_excel": _dp_conf_data.get("commune", ""),
+            "section_excel": str(row.get("Section", "")).strip().upper(),
+            "parcelle_excel": None,  # pas de parcelle dans les registres Dupuy
+            "op_code_gf":    "Em",   # Modification du parcellaire cadastral par défaut
+            "op_code_excel": "DA",
+            "annee_full":    _dp_conf_data.get("annee"),
+            "date_cadastre": f"{_dp_conf_data['annee']}-01-01" if _dp_conf_data.get("annee") else None,
+            "enr_statut":    "Achevé",
+            "prop_anciens":  _dp_conf_data.get("prop_anciens", ""),
+            "prop_nouveaux": _dp_conf_data.get("prop_nouveaux", ""),
+        }
+    elif _geometre_val in _GEOMETRES_API_DIRECT and st.session_state.get(f"_ad_lookup_confirmed_{base_name}_{page_id}"):
+        _unified_dossier = st.session_state.get(f"_ad_lookup_confirmed_{base_name}_{page_id}")
+
+_confirmed = None  # Valeur par défaut : aucun dossier confirmé
+if _unified_dossier:
+    _confirmed = _unified_dossier
+if _confirmed:
+    _sec_clean = ""
+    _num_clean = ""
+    
+    # Clés de session globales pour l'étape 2 (Carte)
+    _map_confirmed_key = f"_map_confirmed_{base_name}_{page_id}"
+    _map_coords_key    = f"_map_coords_{base_name}_{page_id}"
+    
+    # Clé de sauvegarde du dossier (diffère selon le géomètre)
+    if _geometre_val in {"RACAT", "CEYTE"}:
+        _unified_confirmed_key = f"_rc_lookup_confirmed_{base_name}_{page_id}"
+    elif _geometre_val in _GEOMETRES_REPERTOIRE_DUPUY:
+        _unified_confirmed_key = f"_dp_lookup_confirmed_{base_name}_{page_id}"
+    elif _geometre_val in _GEOMETRES_API_DIRECT:
+        _unified_confirmed_key = f"_ad_lookup_confirmed_{base_name}_{page_id}"
+    else: # Harrois/Barrial
+        _unified_confirmed_key = f"_lookup_confirmed_{base_name}_{page_id}"
+
+    
+    st.markdown("---")
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#f8fafc;
+    padding:1.5rem 2rem;border-radius:14px;margin-bottom:1.5rem;
+    border-left:5px solid #10b981;">
+    <h3 style="margin:0;font-size:1.3rem;font-weight:700;">
+        Étape 2 — Localisation cartographique
+    </h3>
+    <p style="margin:0.4rem 0 0;color:#94a3b8;font-size:0.9rem;">
+        Vérifiez que la pastille sera créée au bon endroit. Déplacez le marqueur si nécessaire.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.warning("⚠️ **Attention aux doublons :** Si une pastille est déjà visible à proximité sur la carte, vérifiez directement sur [**Géofoncier**](https://expert.geofoncier.fr) de quoi il s'agit. Il ne faut pas créer deux pastilles pour le même dossier.")
+    st.info("**Parcelle introuvable ?** Si la parcelle ne s'affiche pas sur la carte (même après avoir cliqué sur 'Actualiser la carte' et sans la filiation), essayez de chercher un autre numéro de parcelle présent sur le plan. Soyez vigilant avec le domaine public (routes, places) qui ne possède généralement pas de numéro cadastral propre.")
+
+    # Récupération préliminaire des infos pour la carte
+    # Fallback universel sur les champs du CSV si les variables locales du bloc
+    # géomètre (ex: _lu_commune pour Harrois) ne sont pas définies dans ce scope.
+    _fb_commune  = locals().get("_lu_commune",  str(row.get("Commune",  "")).strip())
+    _fb_section  = locals().get("_lu_section",  str(row.get("Section",  "")).strip().upper())
+    # Pour les géomètres sans bloc Harrois (ex: DUPUY), les parcelles viennent du CSV plan
+    _fb_parcelle = locals().get("_lu_parcelle_str", " ".join(filter(None, [
+        str(row.get("Nouvelles_Parcelles", "")),
+        str(row.get("Anciennes_Parcelles", "")),
+        str(row.get("Parcelles", "")),
+    ])).strip())
+
+    _map_commune  = _confirmed.get("commune_excel") or _confirmed.get("commune") or _fb_commune
+    _map_section  = _confirmed.get("section_excel", _confirmed.get("section",  _fb_section))
+
+    _map_parcelle = _confirmed.get("parcelle_excel", _confirmed.get("parcelle", None))
+    if pd.isna(_map_parcelle) or not _map_parcelle:
+        # Extraction robuste du premier numéro de parcelle (pas de dépendance externe)
+        import re as _re_parc
+        _parc_nums = _re_parc.findall(r"\b\d+\b", str(_fb_parcelle))
+        _map_parcelle = int(_parc_nums[0]) if _parc_nums else None
+    # ── IMPORTS UNIFIÉS ──────────────────────────────────────────────────────────
+    # Garantit que les bibliothèques et API sont disponibles quel que soit le
+    # chemin du géomètre (Dupuy, Racat, API Direct n'ont pas forcément ces imports)
+    import folium
+    from streamlit_folium import st_folium
+    from geofoncier_api import (
+        get_insee_from_commune, get_parcel_geometry, geocode_commune,
+        verify_parcel_ign, create_geofoncier_dossier, upload_document_to_dossier,
+        format_date_iso, refresh_geofoncier_token
+    )
+    
+    _, _map_insee = get_insee_from_commune(_map_commune)
+
+    # Clés de session pour correction manuelle section/parcelle
+    _map_section_key  = f"map_section_{page_id}"
+    _map_parcelle_key = f"map_parcelle_{page_id}"
+
+    # ── Contrôles de correction section/parcelle ───────────────────
+    _col_mc1, _col_mc2, _col_mc3 = st.columns([1, 1, 1])
+    with _col_mc1:
+        _map_section_input = st.text_input(
+            "Section (corrigeable)",
+            value=st.session_state.get(_map_section_key, _map_section or ""),
+            key=_map_section_key,
+            help="Modifiez si l'OCR a mal lu la section cadastrale."
+        )
+    with _col_mc2:
+        _map_parcelle_input = st.text_input(
+            "N° Parcelle (corrigeable)",
+            value=st.session_state.get(_map_parcelle_key, str(_map_parcelle) if _map_parcelle else ""),
+            key=_map_parcelle_key,
+            help="Modifiez si le numéro de parcelle est incorrect."
+        )
+    with _col_mc3:
+        _btn_refresh_map = st.button(
+            "Actualiser la carte",
+            key=f"btn_refresh_map_{page_id}",
+            use_container_width=True,
+            help="Recherche la parcelle corrigée sur la carte."
+        )
+
+    # Cache de géométrie dans session_state (évite les appels IGN répétés)
+    # ─── Localisation en 3 niveaux : parcelle exacte → section → commune ───
+    # L'API IGN apicarto cherche la parcelle avec le numero actuel.
+    # Format attendu : section 2 cars (ex "AL"), numero 4 chiffres (ex "0160")
+    # Si la parcelle n'est plus dans IGN (fusionnee, renumerotee),
+    # on cherche n'importe quelle parcelle de la meme section pour
+    # centrer la carte dans le bon quartier de la commune.
+    # --- Formatage robuste section / numero (HORS CACHE pour reruns) ---
+    _sec_clean = str(_map_section_input or "").strip().upper().zfill(2)
+    _num_raw   = str(_map_parcelle_input or "").strip()
+    _num_digits = "".join(c for c in _num_raw if c.isdigit())
+    _num_clean  = _num_digits.zfill(4) if _num_digits else ""
+
+    _geom_cache_key = f"_geom_v2_{page_id}_{_map_section_input}_{_map_parcelle_input}_{_map_insee}"
+    if _geom_cache_key not in st.session_state or _btn_refresh_map:
+        _geom = None
+        _geo_status = "commune"  # "parcel" | "section" | "commune"
+
+        # Etape 1 : parcelle exacte (API IGN apicarto)
+        if _sec_clean and _num_clean and _map_insee:
+            with st.spinner(f"Recherche parcelle {_sec_clean}-{_num_clean} sur IGN..."):
+                _geom = get_parcel_geometry(_map_insee, _sec_clean, _num_clean)
+            if _geom and _geom.get("found"):
+                _geo_status = "parcel"
+            else:
+                # Etape 1.5 : Recherche dans l'historique DFI (Filiation)
+                with st.spinner("Parcelle introuvable. Recherche dans la filiation (DFI)..."):
+                    import cadastre_filiation
+                    dfi_path = "dfi_07.json" # Fichier JSON généré à partir du TXT DFI
+                    filiation_engine = cadastre_filiation.get_filiation_engine(dfi_path if __import__('os').path.exists(dfi_path) else None)
+                    filles = filiation_engine.trouver_parcelles_actuelles(_map_insee, _sec_clean, _num_clean)
+                    
+                    if filles:
+                        # Filiation trouvée ! On géocode TOUTES les parcelles filles
+                        _geom_filles_all = []
+                        for p_fille in filles:
+                            g = get_parcel_geometry(_map_insee, p_fille['section'], p_fille['numero'])
+                            if g and g.get("found"):
+                                _geom_filles_all.append(g)
+                                
+                        if _geom_filles_all:
+                            # On utilise le centroid de la première pour centrer la carte
+                            _geom = _geom_filles_all[0].copy()
+                            _geom["filles_filiation"] = filles
+                            
+                            # On fusionne tous les polygones dans une FeatureCollection
+                            features = [g["geojson"] for g in _geom_filles_all if g.get("geojson")]
+                            if features:
+                                _geom["geojson"] = {
+                                    "type": "FeatureCollection",
+                                    "features": features
+                                }
+                            _geo_status = "filiation"
+
+        # Etape 2 : centroide de n'importe quelle parcelle de la section
+        if _geo_status not in ["parcel", "filiation"] and _sec_clean and _map_insee:
+            with st.spinner(f"Parcelle non trouvee — recherche du centre section {_sec_clean}..."):
+                import requests as _rq_sec
+                try:
+                    _sec_url = (
+                        f"https://apicarto.ign.fr/api/cadastre/parcelle"
+                        f"?code_insee={_map_insee}&section={_sec_clean}&_limit=5"
+                    )
+                    _sec_r = _rq_sec.get(_sec_url, timeout=7)
+                    if _sec_r.status_code == 200:
+                        _sec_feats = _sec_r.json().get("features", [])
+                        if _sec_feats:
+                            # Calculer le centroide moyen de toutes les parcelles trouvees
+                            _all_lats, _all_lons = [], []
+                            for _sf in _sec_feats:
+                                _sg = _sf.get("geometry", {})
+                                _sc = _sg.get("coordinates", [])
+                                if _sc:
+                                    # Handle both Polygon (1 ring) and MultiPolygon (list of polygons)
+                                    _ring = _sc[0][0] if _sg.get("type") == "MultiPolygon" else _sc[0]
+                                    _all_lats.append(sum(p[1] for p in _ring) / len(_ring))
+                                    _all_lons.append(sum(p[0] for p in _ring) / len(_ring))
+                            if _all_lats:
+                                _sec_ctr = [sum(_all_lats)/len(_all_lats), sum(_all_lons)/len(_all_lons)]
+                                _geom = {"centroid": _sec_ctr, "geojson": None, "found": False, "section_found": True}
+                                _geo_status = "section"
+                except Exception:
+                    pass
+
+        # Etape 3 : centroide de la commune (dernier recours)
+        if _geo_status == "commune":
+            _comm_ctr = geocode_commune(_map_commune, _map_insee)
+            _geom = {"centroid": _comm_ctr, "geojson": None, "found": False, "section_found": False}
+
+        st.session_state[_geom_cache_key] = _geom
+        st.session_state[f"_geo_status_{page_id}"] = _geo_status
+
+    _geom      = st.session_state.get(_geom_cache_key) or {"centroid": [44.7356, 4.5990], "found": False}
+    _geo_status = st.session_state.get(f"_geo_status_{page_id}", "commune")
+
+    _parcel_found   = (_geo_status == "parcel")
+    _filiation_found = (_geo_status == "filiation")
+    _section_approx = (_geo_status == "section")
+    _map_center     = _geom.get("centroid") or [44.7356, 4.5990]
+
+    # Position du marqueur :
+    # Priorite : clic utilisateur sur cette carte > centroide IGN de la parcelle/section/commune
+    _click_key   = f"_map_click_{base_name}_{page_id}"
+    _saved_click = st.session_state.get(_click_key, None)
+    _marker_pos  = _saved_click if _saved_click else _map_center
+
+    # ── Bandeau de statut ──────────────────────────────────────────────────
+    if _parcel_found:
+        st.success(
+            f"Parcelle **{_sec_clean}-{_num_clean}** localisee sur IGN "
+            f"(commune {_map_commune}). Polygone orange = parcelle exacte. "
+            "Cliquez sur la carte pour ajuster la position si besoin."
+        )
+    elif _filiation_found:
+        filles_info = ", ".join([f"{f['section']}-{f['numero']}" for f in _geom.get("filles_filiation", [])])
+        st.success(
+            f"⚠️ Ancienne parcelle **{_map_section_input or _sec_clean}-{_map_parcelle_input or _num_clean}** introuvable, mais **filiation identifiée** ! "
+            f"Elle correspond aujourd'hui aux parcelles : **{filles_info}**. "
+            "Les emprises des nouvelles parcelles sont affichées (polygones violets) et le marqueur est placé au centre."
+        )
+        
+        _filles = _geom.get("filles_filiation", [])
+        if _filles:
+            _new_sec = _filles[0]['section']
+            _new_nums = ", ".join([f['numero'] for f in _filles if f['section'] == _new_sec])
+            st.info(f"💡 Pour le versement Géofoncier (Étape 3), les nouvelles parcelles **{_new_sec} - {_new_nums}** seront automatiquement utilisées.")
+    elif _section_approx:
+        st.info(
+            f"Parcelle **{_sec_clean}-{_num_clean}** introuvable dans IGN et sans historique (DFI). "
+            f"Carte centree sur la **section {_sec_clean}** au zoom cadastral. "
+            "**Cliquez sur la parcelle correcte** pour placer la pastille."
+        )
+    else:
+        st.warning(
+            f"Section **{_sec_clean}** non trouvee. Carte centree sur **{_map_commune}**. "
+            "Naviguez dans le cadastre et **cliquez** pour positionner la pastille."
+        )
+    if _saved_click:
+        st.success(
+            f"Position choisie : **{_saved_click[0]:.5f}N, {_saved_click[1]:.5f}E**. "
+            "Recliquez pour corriger."
+        )
+
+    # ── Construction de la carte Folium ────────────────────────────
+    _zoom = 18 if (_parcel_found or _filiation_found) else 14
+    # Zoom forcé à 18 si parcelle trouvée (sinon numéros illisibles au-dessous)
+    _zoom_final = max(_zoom, 18) if (_parcel_found or _filiation_found) else _zoom
+    _fmap = folium.Map(
+        location=_marker_pos,
+        zoom_start=_zoom_final,
+        control_scale=True,
+        tiles=None,  # On ne charge PAS le fond OSM par défaut
+    )
+
+    # ── FOND 1 : Plan IGN v2 (défaut — affiche routes, batiments, contexte)
+    folium.TileLayer(
+        tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
+              "&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png"
+              "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        attr="IGN-Géoportail — Plan IGN",
+        name="Plan IGN (défaut)",
+        max_zoom=19,
+        show=True,
+    ).add_to(_fmap)
+
+    # ── FOND 2 : Orthophoto IGN haute résolution
+    folium.TileLayer(
+        tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
+              "&LAYER=HR.ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg"
+              "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        attr="IGN-Géoportail — Orthophoto",
+        name="Orthophoto IGN",
+        max_zoom=21,
+        show=False,
+    ).add_to(_fmap)
+
+    # ── FOND 3 : Plan OSM (secours)
+    folium.TileLayer(
+        tiles="OpenStreetMap",
+        name="Plan OSM",
+        show=False,
+    ).add_to(_fmap)
+
+    # ── OVERLAY : Cadastre IGN (numéros de parcelles) — ACTIF PAR DÉFAUT
+    folium.WmsTileLayer(
+        url="https://data.geopf.fr/wms-r/wms?",
+        layers="CADASTRALPARCELS.PARCELLAIRE_EXPRESS",
+        fmt="image/png",
+        transparent=True,
+        name="Cadastre (numéros parcelles)",
+        attr="IGN-Géoportail — Cadastre",
+        overlay=True,
+        show=True,       # Activé par défaut
+        opacity=0.85,    # Bien visible
+    ).add_to(_fmap)
+
+    # Polygone de la parcelle (si trouvée via API IGN ou Filiation)
+    if (_parcel_found or _filiation_found) and _geom.get("geojson"):
+        _props = _geom["geojson"].get("properties") or {}
+        folium.GeoJson(
+            _geom["geojson"],
+            name="Parcelle identifiée" if _parcel_found else "Nouvelle Parcelle Fille",
+            style_function=lambda x: {
+                "fillColor":   "#f97316" if _parcel_found else "#8b5cf6", # Violet si issue de filiation
+                "color":       "#ea580c" if _parcel_found else "#7c3aed",
+                "weight":      4,
+                "fillOpacity": 0.30,
+            },
+            tooltip=folium.GeoJsonTooltip(
+                fields=[k for k in ["section", "numero", "contenance"] if k in _props],
+                aliases=["Section", "Parcelle", "Contenance"][: sum(1 for k in ["section", "numero", "contenance"] if k in _props)],
+            )
+        ).add_to(_fmap)
+
+    # Marqueur draggable (= future pastille Géofoncier)
+    _marker_popup = folium.Popup(
+        f"<b>Dossier : {_confirmed.get('ref_dossier', '?')}</b><br>"
+        f"Commune : {_map_commune}<br>"
+        f"Section : {_map_section_input} — Parcelle : {_map_parcelle_input}<br>"
+        f"<em>Cliquez sur la carte pour déplacer la pastille.</em>",
+        max_width=280,
+    )
+    folium.Marker(
+        location=_marker_pos,
+        popup=_marker_popup,
+        tooltip="📍 Future pastille Géofoncier",
+        icon=folium.Icon(color="red", icon="map-marker", prefix="fa"),
+    ).add_to(_fmap)
+
+    # Cercle de contexte (rayon 30m)
+    folium.Circle(
+        location=_marker_pos,
+        radius=30,
+        color="#f59e0b",
+        fill=True,
+        fill_color="#fef3c7",
+        fill_opacity=0.15,
+        weight=2,
+        dash_array="6",
+        tooltip="Rayon 30m",
+    ).add_to(_fmap)
+
+    # Contrôle des couches (déplié pour visibilité)
+    folium.LayerControl(position="topright", collapsed=False).add_to(_fmap)
+
+    # ─── Affichage de la carte ──────────────────────────────────────────────
+    # Zoom adaptatif : 18 si parcelle trouvee, 16 si section, 14 si commune
+    _zoom_map = 18 if (_parcel_found or _filiation_found) else (16 if _section_approx else 14)
+
+    _fmap = folium.Map(
+        location=_map_center,
+        zoom_start=_zoom_map,
+        control_scale=True,
+        tiles=None,
+    )
+
+    # FOND 1 : Plan IGN v2
+    folium.TileLayer(
+        tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
+              "&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png"
+              "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        attr="IGN-Geoportail Plan IGN", name="Plan IGN",
+        max_zoom=19, show=True,
+    ).add_to(_fmap)
+
+    # FOND 2 : Orthophoto IGN
+    folium.TileLayer(
+        tiles="https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0"
+              "&LAYER=HR.ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg"
+              "&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",
+        attr="IGN-Geoportail Orthophoto", name="Orthophoto IGN",
+        max_zoom=21, show=False,
+    ).add_to(_fmap)
+
+    folium.TileLayer(tiles="OpenStreetMap", name="Plan OSM", show=False).add_to(_fmap)
+
+    # ─── COUCHES GEOFONCIER (Publiques via API OGE) ────────────────────
+    # Emprises des dossiers (polygones)
+    folium.WmsTileLayer(
+        url="https://api2.geofoncier.fr/api/referentielsoge/wxs?",
+        layers="DOSSIERS_EMPRISES",
+        fmt="image/png", transparent=True,
+        name="Géofoncier (Emprises)",
+        attr="Ordre des Géomètres-Experts",
+        overlay=True, show=False, opacity=0.6,
+        maxNativeZoom=19, maxZoom=22,
+    ).add_to(_fmap)
+
+    # Localisants des dossiers (pastilles) - Actif par defaut
+    folium.WmsTileLayer(
+        url="https://api2.geofoncier.fr/api/referentielsoge/wxs?",
+        layers="DOSSIERS_LOCALISANTS",
+        fmt="image/png", transparent=True,
+        name="Géofoncier (Pastilles)",
+        attr="Ordre des Géomètres-Experts",
+        overlay=True, show=True, opacity=0.9,
+        maxNativeZoom=19, maxZoom=22,
+    ).add_to(_fmap)
+
+    # OVERLAY CADASTRE : numeros de parcelles actifs par defaut
+    folium.WmsTileLayer(
+        url="https://data.geopf.fr/wms-r/wms?",
+        layers="CADASTRALPARCELS.PARCELLAIRE_EXPRESS",
+        fmt="image/png", transparent=True,
+        name="Cadastre IGN (numeros parcelles)",
+        attr="IGN-Geoportail Cadastre",
+        overlay=True, show=True, opacity=0.85,
+        maxNativeZoom=18, maxZoom=22,
+    ).add_to(_fmap)
+
+    # Polygone orange : parcelle exacte si trouvee dans IGN (violet si filiation)
+    if (_parcel_found or _filiation_found) and _geom.get("geojson"):
+        _props = _geom["geojson"].get("properties") or {}
+        _tt_fields  = [k for k in ["section", "numero", "contenance"] if k in _props]
+        _tt_aliases = ["Section", "Parcelle", "Surface m2"][:len(_tt_fields)]
+        folium.GeoJson(
+            _geom["geojson"],
+            name="Parcelle cadastrale identifiee",
+            style_function=lambda x: {
+                "fillColor": "#f97316" if _parcel_found else "#8b5cf6",
+                "color": "#ea580c" if _parcel_found else "#7c3aed",
+                "weight": 4, "fillOpacity": 0.35,
+            },
+            tooltip=folium.GeoJsonTooltip(fields=_tt_fields, aliases=_tt_aliases)
+        ).add_to(_fmap)
+
+    # Marqueur rouge = future pastille Geofoncier
+    # Position : clic utilisateur si deja clique, sinon centroide IGN
+    folium.Marker(
+        location=_marker_pos,
+        popup=folium.Popup(
+            f"<b>Dossier {_confirmed.get('ref_dossier', '?')}</b><br>"
+            f"Commune : {_map_commune}<br>"
+            f"Section : {_sec_clean} - Parcelle : {_num_clean}<br>"
+            f"<i>Cliquez sur la carte pour repositionner.</i>",
+            max_width=260,
+        ),
+        tooltip="Pastille Geofoncier — cliquez sur la carte pour deplacer",
+        icon=folium.Icon(color="red", icon="map-marker", prefix="fa"),
+    ).add_to(_fmap)
+
+    folium.Circle(
+        location=_marker_pos, radius=25,
+        color="#f59e0b", fill=True, fill_color="#fef3c7",
+        fill_opacity=0.2, weight=2, dash_array="5",
+    ).add_to(_fmap)
+
+    folium.LayerControl(position="topright", collapsed=False).add_to(_fmap)
+
+    # ─── Rendu st_folium ──────────────────────────────────────────────────────
+    # La cle inclut _marker_pos pour forcer le rerendu quand la position change.
+    _map_key = f"fmap_{page_id}_{_sec_clean}_{_num_clean}_{str(_marker_pos)[:25]}"
+
+    if "show_plan_comparatif" not in st.session_state:
+        st.session_state.show_plan_comparatif = False
+
+    _btn_label = "Masquer le plan d'époque" if st.session_state.show_plan_comparatif else "Comparer avec le plan d'époque"
+    if st.button(_btn_label):
+        st.session_state.show_plan_comparatif = not st.session_state.show_plan_comparatif
+        st.rerun()
+
+    if st.session_state.show_plan_comparatif and 'img_base' in locals() and img_base:
+        col_map, col_img = st.columns([1, 1], gap="medium")
+    else:
+        col_map = st.container()
+        col_img = None
+
+    with col_map:
+        _map_output = st_folium(
+            _fmap,
+            width="100%",
+            height=520,
+            returned_objects=["last_clicked"],
+            key=_map_key,
+        )
+        
+    if col_img is not None:
+        with col_img:
+            st.image(img_base, use_container_width=True)
+
+    # ─── Mise a jour position apres clic utilisateur ─────────────────────────
+    # Quand l'utilisateur clique sur une parcelle, last_clicked est mis a jour.
+    # On sauvegarde le clic → rerun → marqueur se deplace a la nouvelle position.
+    if _map_output and _map_output.get("last_clicked"):
+        _lc = _map_output["last_clicked"]
+        _lat_c, _lng_c = _lc.get("lat"), _lc.get("lng")
+        if _lat_c is not None and _lng_c is not None:
+            _new_pos = [_lat_c, _lng_c]
+            if st.session_state.get(_click_key) != _new_pos:
+                st.session_state[_click_key] = _new_pos
+                st.rerun()
+
+    # ─── Boutons de confirmation / reinitialisation ───────────────────────────
+    st.caption(
+        "Cliquez sur la carte pour positionner la pastille sur la bonne parcelle. "
+        "Puis cliquez Confirmer pour passer au versement."
+    )
+    def _on_confirm_map():
+        _pos_finale = st.session_state.get(_click_key, _marker_pos)
+        st.session_state[_map_confirmed_key] = True
+        st.session_state[_map_coords_key]    = _pos_finale
+        
+        _final_sec = _sec_clean
+        _final_num = _num_clean
+        
+        # Récupérer la parcelle exacte sous le marqueur placé par l'opérateur
+        import geofoncier_api
+        _clicked_parcel = geofoncier_api.get_parcel_by_coordinates(_pos_finale[0], _pos_finale[1])
+        
+        if _clicked_parcel and _clicked_parcel.get("section") and _clicked_parcel.get("numero"):
+            _final_sec = _clicked_parcel["section"].zfill(2)
+            _final_num = _clicked_parcel["numero"].zfill(4)
+            if _clicked_parcel.get("code_insee"):
+                _confirmed["code_insee_ign"] = _clicked_parcel["code_insee"]
+        elif _filiation_found and _geom and _geom.get("filles_filiation"):
+            # Fallback sur la première fille de la filiation
+            _fille = _geom["filles_filiation"][0]
+            _final_sec = _fille["section"].zfill(2)
+            _final_num = _fille["numero"]
+        
+        st.session_state[f"lu_section_{page_id}"] = _final_sec
+        _confirmed["section_excel"] = _final_sec
+        _confirmed["parcelle_excel"] = _final_num
+        
+        st.session_state[_unified_confirmed_key] = _confirmed
+
+    _col_btn1, _col_btn2 = st.columns([1, 1])
+    with _col_btn1:
+        st.button(
+            "Confirmer cette localisation",
+            type="primary",
+            key=f"btn_map_confirm_{page_id}",
+            use_container_width=True,
+            on_click=_on_confirm_map
+        )
+
+    with _col_btn2:
+        if st.button(
+            "Reinitialiser la localisation",
+            key=f"btn_map_reset_{page_id}",
+            use_container_width=True,
+        ):
+            for _k in [_map_confirmed_key, _map_coords_key, _geom_cache_key,
+                        _click_key, f"_geo_status_{page_id}"]:
+                if _k in st.session_state:
+                    del st.session_state[_k]
+            st.rerun()
+
+    if st.session_state.get(_map_confirmed_key):
+        _pos_conf = st.session_state.get(_map_coords_key, _marker_pos)
+        st.success(
+            f"Localisation confirmee : {_pos_conf[0]:.5f}N, {_pos_conf[1]:.5f}E "
+            f"- Section {_sec_clean}, Parcelle {_num_clean}"
+        )
+    else:
+        st.markdown(
+            "<div style='background:#fef3c7;border-left:4px solid #f59e0b;"
+            "padding:10px 16px;border-radius:8px;font-size:0.9rem;'>"
+            "<b>Action requise</b> : Verifiez la pastille rouge, cliquez sur la"
+            " bonne parcelle si besoin, puis confirmez ci-dessus.</div>",
+            unsafe_allow_html=True
+        )
+
+    _map_validated = st.session_state.get(_map_confirmed_key, False)
+    # La carte est optionnelle si la parcelle a été trouvée et validée via IGN
+    _map_optional = _parcel_found or _filiation_found
+    if _confirmed and (_map_validated or _map_optional):
+        st.markdown("---")
+        st.markdown("### Étape 3 — Versement sur Géofoncier")
+
+        # Récupération des informations finales
+        _ref_dossier  = _confirmed.get("ref_dossier", "")
+        _op_gf        = _confirmed.get("op_code_gf", "")
+        _op_excel     = _confirmed.get("op_code_excel", "")
+        _annee_full   = _confirmed.get("annee_full", None)
+        _section_final = _map_section_input.strip().upper() if _map_section_input.strip() else _confirmed.get("section_excel", _fb_section)
+        _parcelle_final = _map_parcelle_input.strip() if _map_parcelle_input.strip() else _confirmed.get("parcelle_excel", None)
+
+        # ── AUTO-REMPLACEMENT PAR LA FILIATION ──────────────────────
+        if _filiation_found and _geom.get("filles_filiation"):
+            _filles = _geom["filles_filiation"]
+            _section_final = _filles[0]['section']
+            _parcelle_final = ", ".join([f['numero'] for f in _filles if f['section'] == _section_final])
+
+        # Code INSEE : priorité à la localisation IGN (clic carte), sinon résolution textuelle
+        _code_insee_auto = _confirmed.get("code_insee_ign")
+        if not _code_insee_auto:
+            _, _code_insee_auto = get_insee_from_commune(_map_commune)
+
+        # Récap des identifiants (Adaptation dynamique selon le géomètre validé)
+        import geofoncier_api
+        _cab_createur_label = _geometre_val
+        _cab_createur_code  = geofoncier_api.CABINETS_CREATEURS.get(_geometre_val) or geofoncier_api.ENR_CAB_DETENTEUR
+
+        # Affichage récapitulatif
+        st.markdown("""
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1.5rem;margin-bottom:1rem;">
+        <h4 style="margin:0 0 1rem;color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:0.5rem;">
+            Récapitulatif du dossier à créer
+        </h4>
+        """, unsafe_allow_html=True)
+
+        _cols_recap = st.columns(2)
+        with _cols_recap[0]:
+            st.markdown(f"""
+            | Champ | Valeur |
+            |---|---|
+            | **Cabinet créateur** | {_cab_createur_label} (`{_cab_createur_code}`) |
+            | **Cabinet détenteur** | GEO-SIAPP (`1992C100001`) |
+            | **GE créateur** | Lionnel Robert (`05141`) |
+            | **Référence dossier** | `{_ref_dossier}` |
+            """)
+        with _cols_recap[1]:
+            st.markdown(f"""
+            | Champ | Valeur |
+            |---|---|
+            | **Code INSEE** | `{_code_insee_auto or 'Non trouvé'}` |
+            | **Commune** | {_map_commune} |
+            | **Section** | {_section_final} |
+            | **Parcelle** | {_parcelle_final or '—'} |
+            | **Opération** | {_op_excel} → `{_op_gf}` |
+            """)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        # Date dossier (modifiable)
+        _date_csv = str(row.get("Date","")).strip()
+        _date_iso_auto = format_date_iso(_date_csv, _annee_full)
+    
+        # Forcer la cohérence avec le répertoire certifié
+        _date_repertoire = _confirmed.get("date_cadastre")
+        if _date_repertoire and str(_date_repertoire).strip() not in ("nan", "None", ""):
+            # Si le répertoire contient une date complète (ex: Racat/Ceyte)
+            _date_iso_auto = format_date_iso(str(_date_repertoire), _annee_full)
+        elif _annee_full and not _date_iso_auto.startswith(str(_annee_full)):
+            # Si l'OCR a sorti une date abracadabrante (mauvaise année) on force le 1er janvier de l'année certifiée
+            _date_iso_auto = f"{_annee_full:04d}-01-01"
+        
+        _final_date_iso = st.text_input(
+            "Date du dossier (format AAAA-MM-JJ)",
+            value=_date_iso_auto,
+            key=f"lu_date_iso_{page_id}",
+            help="Priorité : Date exacte du répertoire > 1er Janvier de l'année du répertoire > Date lue par l'OCR."
+        )
+
+        # Code opération (modifiable si vide)
+        if not _op_gf:
+            _final_op_gf = st.text_input(
+                "Code opération Géofoncier (obligatoire)",
+                value="Em",  # Valeur par défaut (Modification du parcellaire cadastral)
+                key=f"lu_op_gf_{page_id}",
+                help="Ex: Em=Modification du parcellaire cadastral, Ec=Division, Eb=Bornage..."
+            )
+        else:
+            _final_op_gf = _op_gf
+            st.info(f"Code opération Géofoncier : **{_op_excel}** → `{_op_gf}`")
+        
+        _final_statut_gf = st.selectbox(
+            "Statut du dossier sur Géofoncier",
+            ["Achevé", "Indéterminé", "En cours", "Annulé", "Archivé"],
+            index=0,
+            key=f"lu_statut_gf_{page_id}",
+            help="Le statut 'Achevé' est attendu par défaut pour ce type d'archive."
+        )
+
+        # Vérification IGN
+        _ign_ok = False
+        if _code_insee_auto and _section_final and _parcelle_final:
+            with st.spinner("Vérification IGN de la parcelle..."):
+                _ign_ok = verify_parcel_ign(_code_insee_auto, _section_final, str(_parcelle_final))
+            if _ign_ok:
+                st.success(f"Parcelle **{_section_final}-{_parcelle_final}** trouvée sur l'IGN (commune {_code_insee_auto}).")
+            else:
+                st.warning(
+                    f"Parcelle **{_section_final}-{_parcelle_final}** non trouvée sur l'IGN (commune {_code_insee_auto}). "
+                    "Vérifiez la section et la parcelle. Vous pouvez quand même verser si vous êtes certain(e).",
+
+                )
+        else:
+            if not _code_insee_auto:
+                st.error("Code INSEE introuvable — le versement ne peut pas continuer sans code INSEE valide.")
+            else:
+                st.warning("Parcelle ou section manquante — la vérification IGN est ignorée.")
+
+        # Bouton désactivé si code INSEE manquant ou code opération manquant
+        _can_submit = bool(_code_insee_auto and _final_op_gf and _ref_dossier)
+        if not _can_submit:
+            _missing = []
+            if not _code_insee_auto: _missing.append("Code INSEE")
+            if not _final_op_gf:        _missing.append("Code opération GF")
+            if not _ref_dossier:     _missing.append("Référence dossier")
+            st.error(f"Impossible de verser — informations manquantes : {', '.join(_missing)}")
+
+        _col_vers, _col_cancel = st.columns([1, 1])
+        with _col_vers:
+            _btn_vers = st.button(
+                "Créer le dossier sur Géofoncier",
+                type="primary",
+                disabled=not _can_submit,
+                key=f"btn_vers_{page_id}",
+                use_container_width=True
+            )
+        with _col_cancel:
+            if st.button("Annuler / Changer de dossier", key=f"btn_cancel_vers_{page_id}", use_container_width=True):
+                if _unified_confirmed_key in st.session_state:
+                    del st.session_state[_unified_confirmed_key]
+                if _lookup_key in st.session_state:
+                    del st.session_state[_lookup_key]
+                st.rerun()
+
+        # ── Exécution du versement ────────────────────────────────────
+        if _btn_vers and _can_submit:
+            # Construction du payload dict
+            _metadata_vers = {
+                "geometre":     _geometre_val,
+                "ref_dossier":  _ref_dossier,
+                "n_ordre":      str(row.get("N_Ordre", "")).strip(),
+                "commune":      _map_commune,
+                "code_insee":   _code_insee_auto,
+                "section":      _section_final,
+                "parcelles":    [_parcelle_final] if _parcelle_final else [],
+                "annee_full":   _annee_full,
+                "date_dossier": _final_date_iso,
+                "op_codes_gf":  [_final_op_gf] if _final_op_gf else [],
+                "enr_statut":   _final_statut_gf,
+            }
+
+            with st.spinner("Création du dossier en cours..."):
+                # Passer les coordonnées GPS du clic carte pour le localisant Lambert93
+                _pos_finale = st.session_state.get(_map_coords_key, None) or st.session_state.get(_click_key, None)
+                _metadata_vers["lat_lon"] = _pos_finale  # [lat, lon] ou None
+                # Passer la nature de l'acte pour résolution du doc_code
+                _metadata_vers["nature_acte"] = str(row.get("Nature_Acte_Geofoncier", "AUTRE")).strip()
+                _vers_result = create_geofoncier_dossier(_metadata_vers)
+
+            if _vers_result.get("success"):
+                _id_doss = _vers_result.get("id_dossier", "")
+                st.success(f"Dossier créé avec succès sur Géofoncier ! ID : **{_id_doss}**")
+
+                # Mise à jour du statut dans le CSV
+                _idx_row = df[df[id_col] == page_id].index[0]
+                import datetime as _dt
+                df.at[_idx_row, "Confirmation_Status"] = f"Versé sur Géofoncier ({_dt.datetime.now().strftime('%d/%m/%Y %H:%M')})"
+                df.to_csv(fichier_choisi, sep=";", index=False, encoding="utf-8-sig")
+                st.cache_data.clear()
+
+                # Upload du document source
+                _doc_path = None
+                for _ext in [".pdf", ".jpg", ".png", ".tif"]:
+                    _p = os.path.join(INPUTS_DIR, f"{base_name}{_ext}")
+                    if os.path.exists(_p):
+                        _doc_path = _p
+                        break
+
+                if _doc_path and _id_doss:
+                    with st.spinner("Upload du document PDF..."):
+                        _nature_acte = str(row.get("Nature_Acte_Geofoncier", "AUTRE")).strip()
+                        _up_result = upload_document_to_dossier(
+                            _id_doss, _doc_path,
+                            doc_description=f"Archive {_ref_dossier} — {_map_commune}",
+                            nature_acte=_nature_acte
+                        )
+                    if _up_result.get("success"):
+                        st.success("Document PDF uploadé avec succès.")
+                    else:
+                        st.warning(f"Le dossier est créé, mais l'upload du PDF a échoué : {_up_result.get('error_msg','')}")
+                elif not _doc_path:
+                    st.warning(f"Document PDF source introuvable dans {INPUTS_DIR}/ pour {base_name}.*")
+            else:
+                st.error(
+                    f"Échec de la création du dossier : "
+                    f"({_vers_result.get('error_code','?')}) {_vers_result.get('error_msg','Erreur inconnue.')}"
+                )
+                if _vers_result.get("payload"):
+                    with st.expander("Détail du payload envoyé (diagnostic)"):
+                        st.json(_vers_result["payload"])
 

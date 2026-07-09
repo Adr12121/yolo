@@ -402,7 +402,7 @@ def _build_ref_dossier_rc(row) -> str:
     """
     annee = row.get("annee")
     n_reg = row.get("n_registre")
-    if annee:
+    if pd.notna(annee):
         aa = int(annee) % 100
         return f"{aa:02d}/{int(n_reg)}"
     return str(int(n_reg))

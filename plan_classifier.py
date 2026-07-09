@@ -1966,6 +1966,26 @@ def _refine_type_plan_from_ocr(initial_type: str, ocr_results: List[Tuple]) -> s
         return "DMPC"
     if "propositions de bornage" in all_text or "certifie par les proprietaires" in all_text or "proprletaires soussignds" in all_text:
         return "DMPC"
+    # Fuzzy DMPC sur texte très bruité (ex: SERRET/vieux DA) — termes typiques corrompus
+    try:
+        from rapidfuzz import fuzz as _rfz
+        _DMPC_SIGNALS = ["document d'arpentage", "piquetage", "certification", "bureau du cadastre", "modificatif parcellaire"]
+        for _sig in _DMPC_SIGNALS:
+            if _rfz.partial_ratio(_sig, all_text) >= 68:
+                print(f"  [Classif] Fuzzy DMPC signal '{_sig}' -> DMPC")
+                return "DMPC"
+    except ImportError:
+        pass
+    # Fuzzy DMPC sur texte très bruité (ex: SERRET/vieux DA) — termes typiques corrompus
+    try:
+        from rapidfuzz import fuzz as _rfz
+        _DMPC_SIGNALS = ["document d'arpentage", "piquetage", "certification", "bureau du cadastre", "modificatif parcellaire"]
+        for _sig in _DMPC_SIGNALS:
+            if _rfz.partial_ratio(_sig, all_text) >= 68:
+                print(f"  [Classif] Fuzzy DMPC signal '{_sig}' -> DMPC")
+                return "DMPC"
+    except ImportError:
+        pass
     if "lotissement" in all_text or "division" in all_text:
         return "PLa"
     if "croquis" in full_text or "conservation" in full_text:
@@ -2385,6 +2405,33 @@ def process_plan(pdf_path: str, models=None, commune_db=None) -> dict:
             for k, v in _generic_graph.items():
                 if k not in _graph_page_results:  # Ne pas écraser les résultats DMPC experts
                     _graph_page_results[k] = v
+
+            # ── Veto graphe spatial : commune ne peut pas être un label connu ──
+            # Si le graphe spatial a capturé un label comme valeur de commune (ex: "Section", "Feuille"),
+            # on supprime ce résultat pour laisser les fallbacks agir correctement.
+            _COMMUNE_VETO_LABELS = {
+                "section", "sectlon", "feuille", "parcelle", "date", "echelle", "dossier",
+                "ordre", "document", "plan", "cadastre", "indication", "objet", "geometre"
+            }
+            if "commune" in _graph_page_results:
+                _com_val = str(_graph_page_results["commune"].get("valeur", "")).strip().lower()
+                _com_conf = _graph_page_results["commune"].get("confidence", 1.0)
+                # Veto si la valeur est un label connu OU si sa confiance de matching DB est < 50%
+                if _com_val in _COMMUNE_VETO_LABELS or len(_com_val) < 3:
+                    print(f"    [commune] VETO graphe spatial : '{_com_val}' ressemble a un label, ignoré")
+                    del _graph_page_results["commune"]
+                elif commune_db:
+                    # Veto si le score fuzzy DB est trop faible (valeur bruitée non reconnue)
+                    try:
+                        from rapidfuzz import process as _rfp, fuzz as _rfz
+                        _noms_db = [re.sub(r"[^A-Z0-9 ]", " ", c["officiel"].upper().strip()) for c in commune_db]
+                        _best_db = _rfp.extractOne(_com_val.upper(), _noms_db, scorer=_rfz.token_set_ratio)
+                        if _best_db is None or _best_db[1] < 48:
+                            print(f"    [commune] VETO graphe spatial : '{_com_val}' score DB {(_best_db[1] if _best_db else 0):.0f}% < 48%, ignoré")
+                            del _graph_page_results["commune"]
+                    except ImportError:
+                        pass
+
             for _gf, _gv in _graph_page_results.items():
                 _lbl = _gv.get("label_trouve", "")
                 print(f"    [{_gf}] -> '{_gv['valeur']}' (Graphe: {_lbl})")
@@ -2418,14 +2465,15 @@ def process_plan(pdf_path: str, models=None, commune_db=None) -> dict:
                 
                 result = None
 
-                # 0. Stratégie spécifique pour l'indication (DMPC/Plans barrés)
-                if field == "indication" and type_plan in ("DMPC", "PLa", "PVa", "GENERIC"):
+                # 0. Stratégie spécifique pour l'indication (DMPC/Plans barrés CERFA uniquement)
+                # Les 3 choix pré-imprimés ne concernent QUE les DMPC CERFA — pas les PVa/PLa/GENERIC/CROQUIS
+                if field == "indication" and type_plan == "DMPC":
                     ind_res = _extract_dmpc_indication(all_ocr_page)
                     if ind_res:
                         result = ind_res
                         # Pas besoin de chercher plus loin
                         champs["indication"] = result
-                        print(f"    [indication] -> '{result['valeur']}' (Survie OCR)")
+                        print(f"    [indication] -> '{result['valeur']}' (Survie OCR DMPC)")
                         continue
 
                 # 0.5 Graphe spatial â€” priorite maximale (label -> voisin direct)
@@ -2687,11 +2735,7 @@ def process_plan(pdf_path: str, models=None, commune_db=None) -> dict:
                         "brut": ", ".join(signataires_detectes)
                     }
 
-            # Fallback PVa bypassé pour respecter la liste stricte des géomètres.
-
-        # ââ€â‚¬ââ€â‚¬ Fallback Global Infaillible pour Gàƒ©omàƒ¨tres Connus ââ€â‚¬ââ€â‚¬
-        # ââ€ â‚¬ââ€ â‚¬ Fallback Global Infaillible pour Gàƒ©omàƒ¨tres Connus ââ€ â‚¬ââ€ â‚¬
-        # ââ€ â‚¬ââ€ â‚¬ Fallback Global Infaillible pour Gàƒ©omàƒ¨tres Connus ââ€ â‚¬ââ€ â‚¬
+        # ─── Fallback Global Infaillible pour GÉOMÈTRES Connus ───
         if True:
             try:
                 from rapidfuzz import fuzz
@@ -2726,16 +2770,27 @@ def process_plan(pdf_path: str, models=None, commune_db=None) -> dict:
                 pass
         
                     # ── Fallback Global Infaillible pour Section et Feuille ──
+        # Exige que la lettre de section soit isolée (non suivie d'une autre lettre ou d'un chiffre)
+        # afin d'éviter de capturer "In" dans "section Indications" ou "C" dans "section CERFA"
+        _SECTION_LABEL_BLACKLIST = {"SECTION", "FEUILLE", "COMMUNE", "PLAN", "CADASTRE",
+                                    "INDICATION", "OBJET", "PARCELLE", "ECHELLE", "DATE",
+                                    "DOSSIER", "ORDRE", "DOCUMENT"}
         if "section" not in champs:
-            m_sec = re.search(r'(?i)\bsection\s+([A-Z]{1,2})\b(?!\s*°)', full_text_page)
+            # Cherche une lettre seule (1-2 chars) après le mot "section", isolée de toute suite alphanum
+            m_sec = re.search(r'(?i)\bsection\s+([A-Z]{1,2})\b(?!\s*(?:[A-Z]|\d))', full_text_page)
             if m_sec:
-                champs["section"] = {
-                    "valeur": m_sec.group(1).upper(),
-                    "zone": [0.0, 0.0, 1.0, 1.0],
-                    "brut": m_sec.group(0),
-                    "confidence": 0.99
-                }
-                print(f"    [section] -> '{m_sec.group(1).upper()}' (Fallback Global)")
+                sec_val = m_sec.group(1).upper()
+                # Rejeter si la valeur ressemble à un début de mot connu (labels, mots courants)
+                _sec_ok = sec_val not in {"IN", "DE", "DU", "ET", "AU", "LA", "LE", "UN", "CE", "CI",
+                                          "DO", "PA", "EX", "NO", "SO", "CA", "MO", "PR", "TA"}
+                if _sec_ok:
+                    champs["section"] = {
+                        "valeur": sec_val,
+                        "zone": [0.0, 0.0, 1.0, 1.0],
+                        "brut": m_sec.group(0),
+                        "confidence": 0.99
+                    }
+                    print(f"    [section] -> '{sec_val}' (Fallback Global)")
         if "feuille" not in champs:
             m_feu = re.search(r'(?i)\bfeuille\s+(?:n[o°])?\s*(\d{1,3})\b', full_text_page)
             if m_feu:
@@ -2751,15 +2806,34 @@ def process_plan(pdf_path: str, models=None, commune_db=None) -> dict:
         ind_val = champs.get("indication", {}).get("valeur", "")
         ind_methode = champs.get("indication", {}).get("methode", "")
         if not ind_val or (len(ind_val) > 40 and ind_methode != "ocr_survie_barre"):
-            m_obj = re.search(r'(?i)(DIVISION|LOTISSEMENT|ARPENTAGE|REMEMBREMENT|MODIFICATIF PARCELLAIRE|ALIGNEMENT)', full_text_page)
-            if m_obj:
+            # Patterns élargis : mots-clés stricts + formulations libres communes dans les vieux DA
+            _IND_PATTERNS_LIBRES = [
+                r"(?i)\b(bornage\s+contradictoire[^.\n]{0,80})",
+                r"(?i)\b(reconnaissance\s+de\s+(?:limites?|bornage)[^.\n]{0,80})",
+                r"(?i)\b(accord\s+amiable[^.\n]{0,60})",
+                r"(?i)\bobjet\s*[:\-]\s*([^.\n]{5,120})",
+                r"(?i)\bnature\s+des?\s+op[eé]rations?\s*[:\-]\s*([^.\n]{5,120})",
+                # Formulations CERFA survivantes (texte bruité des vieux DA type SERRET)
+                r"(?i)(en\s+conformit[eé]\s+d['']un\s+piquetage[^.\n]{0,80})",
+                r"(?i)(d['']apr[eè]s\s+les\s+indications[^.\n]{0,80})",
+                r"(?i)(d['']apr[eè]s\s+un\s+plan\s+d['']arpentage[^.\n]{0,80})",
+                # Mots-clés simples (dernier recours)
+                r"(?i)\b(DIVISION|LOTISSEMENT|ARPENTAGE|REMEMBREMENT|MODIFICATIF\s+PARCELLAIRE|ALIGNEMENT|BORNAGE|DISTRACTION)\b",
+            ]
+            _ind_found = None
+            for _pat in _IND_PATTERNS_LIBRES:
+                _m = re.search(_pat, full_text_page)
+                if _m:
+                    _ind_found = _m.group(1).strip()
+                    break
+            if _ind_found:
                 champs["indication"] = {
-                    "valeur": m_obj.group(1).upper(),
+                    "valeur": _ind_found,
                     "zone": [0.0, 0.0, 1.0, 1.0],
-                    "brut": f"Scanner global objet: {m_obj.group(0)}",
-                    "confidence": 0.99
+                    "brut": f"Scanner global objet: {_ind_found}",
+                    "confidence": 0.85
                 }
-                print(f"    [indication] -> '{m_obj.group(1).upper()}' (Fallback Global)")
+                print(f"    [indication] -> '{_ind_found}' (Fallback Global Elargi)")
 
         # ── Fallback Global Infaillible pour Date ──
         if "date" not in champs or not champs.get("date", {}).get("valeur"):
@@ -2849,6 +2923,13 @@ def process_plan(pdf_path: str, models=None, commune_db=None) -> dict:
                 return True
 
             if field == "indication":
+                # Le résultat de l'OCR de survie (choix A, B, C) commence par une minuscule, il ne faut pas le rejeter.
+                if data.get("methode") == "ocr_survie_barre":
+                    return False
+                # Si combiné avec un fallback DMPC ("d'après les...", "en conformité...")
+                val_lower = val.lower()
+                if val_lower.startswith("d'après") or val_lower.startswith("en conformité"):
+                    return False
                 # Fragment = commence par minuscule ou trop court (DIVISION = 8 chars, ARPENTAGE = 9)
                 if len(val) < 6 or (val[0].islower() and val[0] not in "0123456789"):
                     return True

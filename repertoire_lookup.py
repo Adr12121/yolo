@@ -38,32 +38,30 @@ _EXCEL_GLOB = os.path.join(
 # À vérifier via le service B3 (/dossiersoge/codesoperations/) au premier appel réel.
 # Ces valeurs sont les plus probables d'après la nomenclature Géofoncier standard.
 OP_CODE_MAPPING = {
-    "DA":  "Da",   # Document d'Arpentage
-    "DB":  "Bo",   # Délimitation / Bornage
-    "DB":  "Bo",   # alias
-    "PT":  "Pt",   # Plan Topographique
-    "PP":  "Pp",   # Plan de Propriété
-    "RF":  "Rf",   # Remembrement Foncier
-    "RC":  "Rc",   # Relevé de Consistance
-    "EJ":  "Ej",   # Expertise Judiciaire
-    "CU":  "Cu",   # Certificat d'Urbanisme / Copropriété Urbanisme
-    "EL":  "El",   # Expertise Locative
-    "SC":  "Sc",   # Servitude / Cession
-    "PI":  "Pi",   # Plan d'Implantation
-    "PF":  "Pf",   # Plan Foncier
-    "LO":  "Lo",   # Location
-    "IM":  "Im",   # Immeuble
-    "CO":  "Co",   # Copropriété
-    "DP":  "Da",   # Document de Parcellisation → DA par défaut
-    "DADA": "Da",  # Double DA
-    "DL":  "Da",   # alias DA
-    "lM":  "Im",   # OCR de IM
-    "Dl":  "Da",   # OCR de DA
-    "Pl":  "Pt",   # OCR de PT
-    "co":  "Co",
-    "cu":  "Cu",
-    "pp":  "Pp",
-    "lM":  "Im",
+    "DA":  "Em",   # Document d'Arpentage -> Modification du parcellaire cadastral (Em)
+    "DB":  "Eb",   # Délimitation / Bornage -> Bornage et reconnaissance de limites (Eb)
+    "PT":  "Hb",   # Plan Topographique -> Relevé terrestre (Hb)
+    "PP":  "Ed",   # Plan de Propriété -> Plans parcellaires (Ed)
+    "RF":  "Ca",   # Remembrement Foncier -> Aménagement Foncier Agricole (Ca)
+    "RC":  "En",   # Relevé de Consistance -> Descriptif de propriété (En)
+    "EJ":  "Ej",   # Expertise Judiciaire -> Expertise judiciaire à incidence foncière (Ej)
+    "CU":  "Bb",   # Certificat d'Urbanisme -> Droit des sols (Bb)
+    "EL":  "Ga",   # Expertise Locative -> Expertise d'habitat ou logement (Ga)
+    "SC":  "Ei",   # Servitude / Cession -> Servitudes attachées à la propriété (Ei)
+    "PI":  "Hb",   # Plan d'Implantation -> Relevé terrestre (Hb)
+    "PF":  "Ed",   # Plan Foncier -> Plans parcellaires (Ed)
+    "LO":  "Ia",   # Location -> Gestion immobilière, gestion des baux (Ia)
+    "IM":  "Fa",   # Immeuble -> Copropriété : EDD (Fa)
+    "CO":  "Fa",   # Copropriété -> Copropriété (Fa)
+    "DP":  "Em",   # Document de Parcellisation → DA par défaut (Em)
+    "DADA": "Em",  # Double DA -> (Em)
+    "DL":  "Em",   # alias DA -> (Em)
+    "lM":  "Fa",   # OCR de IM
+    "Dl":  "Em",   # OCR de DA
+    "Pl":  "Hb",   # OCR de PT
+    "co":  "Fa",
+    "cu":  "Bb",
+    "pp":  "Ed",
 }
 
 # ── Géomètres utilisant ce répertoire ────────────────────────────────────────
