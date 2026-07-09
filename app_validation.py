@@ -246,6 +246,7 @@ def load_csv(p):
     except: return pd.read_csv(p, sep=";", encoding="utf-8")
 
 df = load_csv(fichier_choisi)
+base_name = os.path.basename(fichier_choisi).replace("_plan_resultats.csv","").replace("_resultats.csv","")
 
 if "Confirmation_Status" not in df.columns: df["Confirmation_Status"] = "À valider"
 if "Code_INSEE" not in df.columns: df["Code_INSEE"] = ""
