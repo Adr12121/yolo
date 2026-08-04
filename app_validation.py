@@ -882,7 +882,8 @@ _geometre_val = _geometre_raw.split()[0] if _geometre_raw else ""
 
 _GEOMETRES_REPERTOIRE = {"HARROIS", "BARRIAL"}
 _GEOMETRES_REPERTOIRE_DUPUY = {"DUPUY"}        # Répertoire spécifique archives DUPUY
-_GEOMETRES_API_DIRECT = {"SERRET", "LACOUR", "ROBERT"}
+_GEOMETRES_REPERTOIRE_SERRET = {"SERRET"}      # Répertoire Fernand Serret (registres manuscrits)
+_GEOMETRES_API_DIRECT = {"LACOUR", "ROBERT"}
 
 if _geometre_val in _GEOMETRES_REPERTOIRE:
     st.markdown("---")
@@ -1591,6 +1592,289 @@ elif _geometre_val in _GEOMETRES_REPERTOIRE_DUPUY:
                 unsafe_allow_html=True
             )
 
+# ── Archives SERRET — Répertoire manuscrit numérisé ─────────────────────────────────
+elif _geometre_val in _GEOMETRES_REPERTOIRE_SERRET:
+    st.markdown("---")
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0d1b2a,#1b263b);color:#f8fafc;
+    padding:1.5rem 2rem;border-radius:14px;margin-bottom:1.5rem;
+    border-left:5px solid #38bdf8;">
+    <h3 style="margin:0;font-size:1.3rem;font-weight:700;">
+        Résolution répertoire — Archives Fernand SERRET
+    </h3>
+    <p style="margin:0.4rem 0 0;color:#7dd3fc;font-size:0.9rem;">
+        Recherche dans le répertoire numérisé des registres manuscrits SERRET.
+        Numéro de cabinet Géofoncier : <strong style="color:#38bdf8;">03622</strong>
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.warning(
+        "⚠️ **Registres manuscrits** — Le répertoire Serret est issu d'une numérisation OCR de livrets manuscrits. "
+        "Certaines entrées peuvent être incomplètes ou mal reconnues. "
+        "En cas de doute, consultez les registres papier originaux."
+    )
+
+    # ── Import du module de lookup SERRET ─────────────────────────────────────
+    try:
+        from repertoire_serret_lookup import (
+            find_dossier_serret, CABINET_ID_SERRET,
+            GEOMETRES_REPERTOIRE_SERRET as _SERRET_GEO_SET
+        )
+        _serret_ok = True
+    except ImportError as _serret_err:
+        st.error(f"Module repertoire_serret_lookup introuvable : {_serret_err}")
+        _serret_ok = False
+
+    if _serret_ok:
+        # Pré-remplissage depuis le CSV
+        _sr_commune_pre = str(row.get("Commune", "")).strip()
+        _sr_date_pre    = str(row.get("Date", "")).strip()
+        _sr_n_ordre_pre = str(row.get("N_Ordre", "")).strip()  # N° DA extrait par OCR
+
+        # Extraire l'année depuis la date du plan
+        _sr_annee_pre = None
+        import re as _re_sr
+        _m_sr = _re_sr.search(r"(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})", _sr_date_pre)
+        if _m_sr:
+            _yr = int(_m_sr.group(3))
+            _sr_annee_pre = 2000 + _yr if _yr <= 30 else (1900 + _yr if _yr < 100 else _yr)
+        else:
+            _m_sr4 = _re_sr.search(r"\b(19\d{2}|20[0-2]\d)\b", _sr_date_pre)
+            if _m_sr4:
+                _sr_annee_pre = int(_m_sr4.group(1))
+
+        # Champs de saisie
+        _sr_col_a, _sr_col_b = st.columns([1, 1])
+        with _sr_col_a:
+            _sr_commune = st.text_input(
+                "Commune",
+                value=_sr_commune_pre,
+                key=f"sr_commune_{page_id}",
+                help="Le nom de la commune tel qu'inscrit sur le plan."
+            )
+        with _sr_col_b:
+            _sr_annee_str = st.text_input(
+                "Année (4 chiffres, ex: 1989)",
+                value=str(_sr_annee_pre) if _sr_annee_pre else "",
+                key=f"sr_annee_{page_id}",
+                help="Année du document. Laissez vide pour chercher sur toutes les années."
+            )
+
+        # Champs d'aide au tri (optionnels)
+        with st.expander(
+            "🔍 Aide au tri (optionnel) — Objet du dossier ou donneur d'ordre visible sur le plan",
+            expanded=False
+        ):
+            st.caption(
+                "Si vous voyez l'objet de l'opération ou le nom du client sur le plan, "
+                "saisissez-les ici pour que le dossier le plus probable apparaisse en tête de liste."
+            )
+            _sr_col_c, _sr_col_d = st.columns(2)
+            with _sr_col_c:
+                _sr_hint_affaire = st.text_area(
+                    "Objet / Désignation de l'affaire",
+                    height=80, key=f"sr_hint_affaire_{page_id}",
+                    label_visibility="visible"
+                )
+            with _sr_col_d:
+                _sr_hint_client = st.text_area(
+                    "Donneur d'ordre / Client",
+                    height=80, key=f"sr_hint_client_{page_id}",
+                    label_visibility="visible"
+                )
+
+        # Parsing année
+        _sr_annee = None
+        if _sr_annee_str.strip():
+            try:
+                _sr_annee = int(_sr_annee_str.strip())
+                if not (1900 <= _sr_annee <= 2050):
+                    st.warning("L'année doit être un entier à 4 chiffres (ex: 1989).")
+                    _sr_annee = None
+            except ValueError:
+                st.warning("L'année doit être un entier (ex: 1989).")
+
+        _sr_lookup_key = f"_sr_lookup_result_{base_name}_{page_id}"
+        _sr_conf_key   = f"_sr_lookup_confirmed_{base_name}_{page_id}"
+
+        _sr_col_btn, _ = st.columns([1, 3])
+        with _sr_col_btn:
+            if st.button(
+                "Rechercher dans les archives SERRET",
+                type="primary", key=f"sr_btn_search_{page_id}",
+                use_container_width=True
+            ):
+                with st.spinner("Recherche dans le répertoire SERRET..."):
+                    _sr_result = find_dossier_serret(
+                        commune=_sr_commune,
+                        annee=_sr_annee,
+                        hint_affaire=st.session_state.get(f"sr_hint_affaire_{page_id}", ""),
+                        hint_client=st.session_state.get(f"sr_hint_client_{page_id}", ""),
+                    )
+                st.session_state[_sr_lookup_key] = _sr_result
+                if _sr_conf_key in st.session_state:
+                    del st.session_state[_sr_conf_key]
+
+        _sr_result    = st.session_state.get(_sr_lookup_key, None)
+        _sr_confirmed = st.session_state.get(_sr_conf_key, None)
+
+        if _sr_result:
+            _sr_status = _sr_result.get("status", "")
+
+            if _sr_status == "CANDIDATS":
+                _sr_cands = _sr_result.get("candidats", [])
+                _sr_nb    = _sr_result.get("nb_candidats", len(_sr_cands))
+                st.info(_sr_result.get("message", ""))
+
+                # Tableau interactif des candidats
+                _sr_rows_display = []
+                for _cand in _sr_cands:
+                    _score_txt = f"{_cand['score_affaire']}%" if _cand['score_affaire'] > 0 else "—"
+                    _sr_rows_display.append({
+                        "N° Dossier":   _cand["ref_dossier"],
+                        "Date":         _cand["date"],
+                        "Commune":      _cand["commune"],
+                        "Affaire":      _cand["affaire"][:80] + ("..." if len(_cand["affaire"]) > 80 else ""),
+                        "Donneur d'ordre": _cand["client"][:60] + ("..." if len(_cand["client"]) > 60 else ""),
+                        "Score sim.": _score_txt,
+                    })
+
+                _sr_df_display = pd.DataFrame(_sr_rows_display)
+
+                _sr_sel = st.dataframe(
+                    _sr_df_display,
+                    use_container_width=True,
+                    hide_index=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key=f"sr_cand_table_{page_id}",
+                    column_config={
+                        "N° Dossier":    st.column_config.TextColumn(width="small"),
+                        "Date":          st.column_config.TextColumn(width="small"),
+                        "Commune":       st.column_config.TextColumn(width="small"),
+                        "Affaire":       st.column_config.TextColumn(width="large"),
+                        "Donneur d'ordre": st.column_config.TextColumn(width="medium"),
+                        "Score sim.":    st.column_config.TextColumn(width="small"),
+                    }
+                )
+
+                st.caption(
+                    "💡 Cliquez sur une ligne pour la sélectionner, puis confirmez. "
+                    "Le premier résultat est le plus probable (similarité de l'affaire). "
+                    "Vérifiez l'objet et la date avant de confirmer."
+                )
+
+                _sr_sel_rows = _sr_sel.selection.get("rows", []) if hasattr(_sr_sel, "selection") else []
+                if _sr_sel_rows:
+                    _sr_chosen = _sr_cands[_sr_sel_rows[0]]
+                    st.success(
+                        f"✅ Sélection : **{_sr_chosen['ref_dossier']}** — "
+                        f"{_sr_chosen['commune']} ({_sr_chosen['date']}) — "
+                        f"Affaire : {str(_sr_chosen['affaire'])[:60]}"
+                    )
+                    _sr_c1, _sr_c2 = st.columns([1, 2])
+                    with _sr_c1:
+                        if st.button(
+                            "Confirmer ce dossier SERRET",
+                            type="primary",
+                            key=f"sr_btn_confirm_{page_id}",
+                            use_container_width=True
+                        ):
+                            st.session_state[_sr_conf_key] = _sr_chosen
+                            st.rerun()
+                    with _sr_c2:
+                        if st.button(
+                            "Nouvelle recherche",
+                            key=f"sr_btn_reset_{page_id}",
+                            use_container_width=True
+                        ):
+                            for _k in [_sr_lookup_key, _sr_conf_key]:
+                                if _k in st.session_state: del st.session_state[_k]
+                            st.rerun()
+
+            elif _sr_status == "NO_MATCH":
+                st.error(_sr_result.get("message", "Aucune correspondance trouvée."))
+                st.markdown(
+                    "> ⚠️ **Rappel** : Ce résultat ne signifie pas que le dossier est inexistant. "
+                    "Il peut se trouver dans les registres manuscrits non encore numérisés."
+                )
+                # Saisie manuelle de secours
+                _sr_manual_ref = st.text_input(
+                    "Référence manuelle (ex: 89/123)",
+                    key=f"sr_manual_ref_{page_id}",
+                    help="Saisissez la référence trouvée manuellement dans le registre papier"
+                )
+                if _sr_manual_ref and st.button(
+                    "Utiliser cette référence manuelle",
+                    key=f"sr_btn_manual_{page_id}"
+                ):
+                    st.session_state[_sr_conf_key] = {
+                        "ref_dossier": _sr_manual_ref.strip(),
+                        "date": _sr_date_pre,
+                        "annee": _sr_annee,
+                        "commune": _sr_commune,
+                        "affaire": "",
+                        "client": "",
+                        "notes": "Saisie manuelle",
+                        "score_commune": 0,
+                        "score_affaire": 0,
+                    }
+                    st.rerun()
+
+            elif _sr_status == "ERREUR":
+                st.error(f"Erreur technique : {_sr_result.get('message', '')}")
+                st.info(
+                    "Vérifiez que le fichier `Repertoire_Archives_SERRET.xlsx` est accessible "
+                    f"sur `Z:\\_ArchivesSERRET\\` ou dans le dossier "
+                    "`Extraction_Archives_SERRET/outputs_livrets/` après avoir lancé `review_serret.py`."
+                )
+                # Permettre la saisie manuelle même en cas d'erreur de chargement
+                _sr_manual_ref_err = st.text_input(
+                    "Référence manuelle (ex: 89/123)",
+                    key=f"sr_manual_ref_err_{page_id}",
+                )
+                if _sr_manual_ref_err and st.button(
+                    "Utiliser cette référence manuelle",
+                    key=f"sr_btn_manual_err_{page_id}"
+                ):
+                    st.session_state[_sr_conf_key] = {
+                        "ref_dossier": _sr_manual_ref_err.strip(),
+                        "date": _sr_date_pre,
+                        "annee": _sr_annee,
+                        "commune": _sr_commune,
+                        "affaire": "", "client": "",
+                        "notes": "Saisie manuelle (erreur chargement Excel)",
+                        "score_commune": 0, "score_affaire": 0,
+                    }
+                    st.rerun()
+
+        # Dossier confirmé — récapitulatif
+        if _sr_confirmed:
+            st.markdown(
+                f"""
+                <div style="background:#dbeafe;border-left:5px solid #2563eb;
+                padding:1rem 1.5rem;border-radius:10px;margin:1rem 0;">
+                <strong style="color:#1e3a8a;font-size:1rem;">Dossier SERRET confirmé</strong><br>
+                <table style="margin-top:0.5rem;border-collapse:collapse;width:100%;">
+                <tr><td style="padding:2px 8px;"><b>N° Dossier</b></td>
+                    <td style="color:#1e40af;font-weight:700;font-size:1.1rem;">{_sr_confirmed.get('ref_dossier', '—')}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Commune</b></td>
+                    <td>{_sr_confirmed.get('commune', '')}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Date (registre)</b></td>
+                    <td>{_sr_confirmed.get('date', '')}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Affaire</b></td>
+                    <td style="font-size:0.85rem;">{str(_sr_confirmed.get('affaire', ''))[:100]}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>Donneur d'ordre</b></td>
+                    <td style="font-size:0.85rem;">{str(_sr_confirmed.get('client', ''))[:80]}</td></tr>
+                <tr><td style="padding:2px 8px;"><b>N° Cabinet Géofoncier</b></td>
+                    <td style="color:#1d4ed8;font-weight:700;">03622</td></tr>
+                </table>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
 # Géomètres avec flux API direct (sans répertoire Excel dédié)
 elif _geometre_val in _GEOMETRES_API_DIRECT:
     st.markdown("---")
@@ -1692,6 +1976,31 @@ if 'page_id' in locals() and 'base_name' in locals():
             "enr_statut":    "Achevé",
             "prop_anciens":  _dp_conf_data.get("prop_anciens", ""),
             "prop_nouveaux": _dp_conf_data.get("prop_nouveaux", ""),
+        }
+    elif _geometre_val in _GEOMETRES_REPERTOIRE_SERRET and st.session_state.get(f"_sr_lookup_confirmed_{base_name}_{page_id}"):
+        _sr_conf_data = st.session_state.get(f"_sr_lookup_confirmed_{base_name}_{page_id}")
+        # Construire la date ISO depuis la date Serret (jj/mm/aa)
+        _sr_date_iso = None
+        if _sr_conf_data.get("annee") and _sr_conf_data.get("date"):
+            import re as _re_sr_iso
+            _m_dsr = _re_sr_iso.search(r"(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})", str(_sr_conf_data["date"]))
+            if _m_dsr:
+                _d, _mo = int(_m_dsr.group(1)), int(_m_dsr.group(2))
+                _sr_date_iso = f"{_sr_conf_data['annee']}-{_mo:02d}-{_d:02d}"
+            else:
+                _sr_date_iso = f"{_sr_conf_data['annee']}-01-01"
+        _unified_dossier = {
+            "ref_dossier":   _sr_conf_data.get("ref_dossier", ""),
+            "commune_excel": _sr_conf_data.get("commune", ""),
+            "section_excel": str(row.get("Section", "")).strip().upper(),
+            "parcelle_excel": None,
+            "op_code_gf":    "Em",
+            "op_code_excel": "DA",
+            "annee_full":    _sr_conf_data.get("annee"),
+            "date_cadastre": _sr_date_iso,
+            "enr_statut":    "Achevé",
+            "prop_anciens":  "",
+            "prop_nouveaux": _sr_conf_data.get("client", ""),
         }
     elif _geometre_val in _GEOMETRES_API_DIRECT and st.session_state.get(f"_ad_lookup_confirmed_{base_name}_{page_id}"):
         _unified_dossier = st.session_state.get(f"_ad_lookup_confirmed_{base_name}_{page_id}")

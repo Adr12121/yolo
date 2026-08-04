@@ -1,0 +1,45 @@
+======================================================================
+     GUIDE DE DÉPLOIEMENT DU PROJET SUR UN NOUVEL ORDINATEUR
+======================================================================
+
+ÉTAPE 1 : RÉCUPÉRER LE CODE SUR LE NOUVEAU PC
+----------------------------------------------------------------------
+1. Installez Git et Python 3.10 (ou supérieur) sur le nouvel ordinateur.
+2. Clonez le dépôt Git du projet sur le nouvel ordinateur.
+3. Ouvrez le dossier "yolo".
+
+
+ÉTAPE 2 : COPIER LE FICHIER DE CONFIGURATION (.env)
+----------------------------------------------------------------------
+Pour des raisons de sécurité, le fichier ".env" n'est pas envoyé sur Git.
+1. Récupérez le fichier ".env" depuis l'ancien ordinateur (ou une clé USB).
+2. Déposez-le directement dans le dossier "yolo" du nouveau PC.
+   (Ce fichier contient vos clés d'API et identifiants Géofoncier).
+
+
+ÉTAPE 3 : INSTALLATION AUTOMATIQUE
+----------------------------------------------------------------------
+1. Dans le dossier "yolo", double-cliquez sur :
+   "installer_nouveau_pc.bat"
+
+Ce script va automatiquement :
+- Créer l'environnement virtuel Python (.venv).
+- Installer toutes les bibliothèques nécessaires (Streamlit, PyTorch, OpenCV, etc.).
+- Créer les dossiers de travail requis (inputs, outputs, runs).
+
+
+ÉTAPE 4 : PREMIER LANCEMENT & TÉLÉCHARGEMENT DES MODÈLES IA
+----------------------------------------------------------------------
+Au premier lancement avec une connexion Internet active :
+- Les modèles YOLO (yolov8n.pt) et EasyOCR se téléchargeront automatiquement.
+- Les données de filiation et fichiers JSON (dfi_07.json) sont déjà inclus via Git.
+
+
+ÉTAPE 5 : LANCER L'INTERFACE DE VALIDATION
+----------------------------------------------------------------------
+Pour démarrer l'interface web de validation sur le nouveau PC, exécutez dans un terminal ouvert dans le dossier "yolo" :
+
+    .venv\Scripts\python.exe -m streamlit run app_validation.py
+
+Ou créez un raccourci / fichier .bat contenant la ligne ci-dessus.
+======================================================================
