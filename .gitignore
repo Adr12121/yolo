@@ -23,6 +23,7 @@ dataset_images/
 
 # Variables d'environnement
 .env
+env_sauvegarde.txt
 
 # Fichiers volumineux bloqués par GitHub
 Filiation_parcelles/*.zip
